@@ -1,0 +1,38 @@
+###############################################
+# Changelog of the check_mssql_health plugin #
+###############################################
+
+1.5.2
+- fixed a bug where database names with special characters showed errors. (Thanks Hugh Ranalli)
+
+1.5.1 2009-05-26
+- added --server which can be used instead of --hostname/port (Thanks Mark Monaghan)
+- lots of fixes. sql server 2000 should now be fully supported. (Thanks Mereghetti Stefano)
+- --warning/--critical were ignored for memory-pool-related modes (Thanks Mereghetti Stefano)
+
+1.5.0.2 2009-05-05
+- fixed a bug which led to error messages when using the plugin with sql server 2000 (Thanks Christian Mies)
+- fixed a bug so sql server 2000 can list-databases (Thanks Mereghetti Stefano)
+
+1.5.0.1 2009-04-29
+- added a security advice to the README (Thanks Mathieu Barret)
+- fixed a bug in database-free (Thanks Michael Luebben)
+- fixed a typo (Thanks Bernd Staudacher)
+
+1.5 - 2009-03-20
+- rewrote database-free so that unrestricted growth is taken into account (limit is disk)
+- added support for SQLRelay
+
+1.2 - 2009-03-19
+- added support for object_name <> SQLServer:... (this caused "unable to aquire"-errors sometimes)
+- fixed a bug in the PNP template
+
+1.1 - 2009-03-11
+- added modes: transactions, latches-wait-time, locks-waits, locks-timeouts,
+               locks-deadlocks, sql-recompilations, total-server-memory
+- beautified the PNP template
+- fixed counter rollovers after database restart
+
+1.0 - 2009-03-10
+----------------
+- Initial release

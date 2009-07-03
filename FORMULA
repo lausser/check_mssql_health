@@ -1,0 +1,12 @@
+datafile io
+http://media.wiley.com/product_data/excerpt/57/04701274/0470127457.pdf
+http://sqlserveradvisor.blogspot.com/2009/02/microsoft-included-fnvirtualfilestats.html
+
+http://www.databasejournal.com/features/mssql/article.php/3796551/SQL-Server-Database-File-IO-Report.htm
+select database id file id
+
+dbo.sysperfinfo bei sql server2000 und jeztz dm_os_perrformance_counters in 2005
+http://www.mssqltips.com/tip.asp?tip=1039
+
+WMI from linux
+http://forums.cacti.net/about29392.html
