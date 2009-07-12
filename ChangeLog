@@ -3,7 +3,7 @@
 ###############################################
 
 1.5.2
-- fixed a bug where database names with special characters showed errors. (Thanks Hugh Ranalli)
+- fixed a bug where database names with special characters showed errors. (Thanks Hugh Ranalli) 
 
 1.5.1 2009-05-26
 - added --server which can be used instead of --hostname/port (Thanks Mark Monaghan)
