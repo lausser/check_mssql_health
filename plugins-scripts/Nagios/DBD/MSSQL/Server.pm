@@ -222,9 +222,10 @@ sub init {
   } elsif ($params{mode} =~ /^server::sql/) {
     @{$self->{genericsql}} =
         $self->{handle}->fetchrow_array($params{selectname});
-    if (! (defined $self->{genericsql} &&
+    if ((scalar(@{$self->{genericsql}}) == 0) ||
+        (! (defined $self->{genericsql} &&
         (scalar(grep { /^\s*\d+\.{0,1}\d*\s*$/ } @{$self->{genericsql}})) ==
-        scalar(@{$self->{genericsql}}))) {
+        scalar(@{$self->{genericsql}})))) {
       $self->add_nagios_unknown(sprintf "got no valid response for %s",
           $params{selectname});
     } else {
@@ -606,6 +607,10 @@ sub dbconnect {
 sub trace {
   my $self = shift;
   my $format = shift;
+  if (! @_) {
+    # falls im sql-statement % vorkommen. sonst krachts im printf
+    $format =~ s/%/%%/g;
+  }
   $self->{trace} = -f "/tmp/check_mssql_health.trace" ? 1 : 0;
   if ($DBD::MSSQL::Server::verbose) {
     printf("%s: ", scalar localtime);
