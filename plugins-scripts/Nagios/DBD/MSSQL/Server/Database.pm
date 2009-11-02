@@ -25,6 +25,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
     my $num_databases = 0;
     if (($params{mode} =~ /server::database::listdatabases/) ||
         ($params{mode} =~ /server::database::databasefree/) ||
+        ($params{mode} =~ /server::database::lastbackup/) ||
         ($params{mode} =~ /server::database::transactions/) ||
         ($params{mode} =~ /server::database::datafile/)) {
       my @databaseresult = ();
@@ -63,9 +64,51 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         $initerrors = 1;
         return undef;
       }
+    } elsif ($params{mode} =~ /server::database::backupage/) {
+      my @databaseresult = ();
+      if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+        @databaseresult = $params{handle}->fetchall_array(q{
+          SELECT
+            a.name, 
+            DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
+            DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
+          FROM sys.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
+          ON b.database_name = a.name
+          GROUP BY a.name 
+          ORDER BY a.name
+        });
+      } else {
+        @databaseresult = $params{handle}->fetchall_array(q{
+          SELECT
+            a.name, 
+            DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
+            DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
+          FROM master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
+          ON b.database_name = a.name
+          GROUP BY a.name 
+          ORDER BY a.name 
+        }); 
+      }
+      foreach (@databaseresult) { 
+        my ($name, $age, $duration) = @{$_};
+        next if $params{database} && $name ne $params{database};
+        if ($params{regexp}) { 
+          next if $params{selectname} && $name !~ /$params{selectname}/;
+        } else {
+          next if $params{selectname} && lc $params{selectname} ne lc $name;
+        }
+        my %thisparams = %params;
+        $thisparams{name} = $name;
+        $thisparams{backup_age} = $age;
+        $thisparams{backup_duration} = $duration;
+        my $database = DBD::MSSQL::Server::Database->new(
+            %thisparams);
+        add_database($database);
+        $num_databases++;
+      }
     }
-  }
 
+  }
 
 }
 
@@ -79,6 +122,7 @@ sub new {
     name => $params{name},
     id => $params{id},
     datafiles => [],
+    backup_age => undef,
   };
   bless $self, $class;
   $self->init(%params);
@@ -219,7 +263,8 @@ sub init {
         if ($maxsize == -1) {
           $calc->{datafile}->{$name}->{maxsize} =
               exists $calc->{drive_mb}->{$drive} ?
-                  $calc->{drive_mb}->{$drive} : 4 * 1024;
+                  ($calc->{datafile}->{$name}->{allocsize} + 
+                   $calc->{drive_mb}->{$drive}) : 4 * 1024;
           # falls die platte nicht gefunden wurde, dann nimm halt 4GB
         } else {
           $calc->{datafile}->{$name}->{maxsize} = $maxsize / 128;
@@ -365,7 +410,23 @@ sub nagios {
             lc $self->{name},
             $self->{allocated_percent});
       }
-    }
+    } elsif ($params{mode} =~ /server::database::backupage/) {
+      if (! defined $self->{backup_age}) { 
+        $self->add_nagios_critical(sprintf "%s was never backupped",
+            $self->{name}); 
+        $self->{backup_age} = 0;
+        $self->{backup_duration} = 0;
+      } else { 
+        $self->add_nagios( 
+            $self->check_thresholds($self->{backup_age}, 48, 72), 
+            sprintf "%s backupped %dh ago", $self->{name}, $self->{backup_age});
+      } 
+      $self->add_perfdata(sprintf "'%s_bck_age'=%d;%s;%s", 
+          $self->{name}, $self->{backup_age}, 
+          $self->{warningrange}, $self->{criticalrange}); 
+      $self->add_perfdata(sprintf "'%s_bck_time'=%d", 
+          $self->{name}, $self->{backup_duration}); 
+    } 
   }
 }
 

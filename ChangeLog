@@ -2,6 +2,10 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.3
+- fixed a bug in mode database-free (results are more accurate now)
+- added new mode backup-age which checks the age (in hours) of the last backup
+
 1.5.2
 - fixed a bug where database names with special characters showed errors. (Thanks Hugh Ranalli) 
 
