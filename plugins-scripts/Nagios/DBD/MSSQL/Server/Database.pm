@@ -89,7 +89,15 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
           ORDER BY a.name 
         }); 
       }
-      foreach (@databaseresult) { 
+      foreach (sort {
+        if (! defined $b->[1]) {
+          return 1;
+        } elsif (! defined $a->[1]) {
+          return -1;
+        } else {
+          return $a->[1] <=> $b->[1];
+        }
+      } @databaseresult) { 
         my ($name, $age, $duration) = @{$_};
         next if $params{database} && $name ne $params{database};
         if ($params{regexp}) { 
@@ -412,12 +420,12 @@ sub nagios {
             $self->{allocated_percent});
       }
     } elsif ($params{mode} =~ /server::database::backupage/) {
-      $self->check_thresholds($self->{backup_age}, 48, 72); # init wg never
       if (! defined $self->{backup_age}) { 
         $self->add_nagios_critical(sprintf "%s was never backupped",
             $self->{name}); 
         $self->{backup_age} = 0;
         $self->{backup_duration} = 0;
+        $self->check_thresholds($self->{backup_age}, 48, 72); # init wg perfdata
       } else { 
         $self->add_nagios( 
             $self->check_thresholds($self->{backup_age}, 48, 72), 
