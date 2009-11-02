@@ -122,7 +122,8 @@ sub new {
     name => $params{name},
     id => $params{id},
     datafiles => [],
-    backup_age => undef,
+    backup_age => $params{backup_age},
+    backup_duration => $params{backup_duration},
   };
   bless $self, $class;
   $self->init(%params);
@@ -411,6 +412,7 @@ sub nagios {
             $self->{allocated_percent});
       }
     } elsif ($params{mode} =~ /server::database::backupage/) {
+      $self->check_thresholds($self->{backup_age}, 48, 72); # init wg never
       if (! defined $self->{backup_age}) { 
         $self->add_nagios_critical(sprintf "%s was never backupped",
             $self->{name}); 
