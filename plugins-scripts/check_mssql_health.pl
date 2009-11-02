@@ -101,7 +101,7 @@ my @modes = (
       'database-free', undef,
       'Free space in database' ],
   ['server::database::backupage',
-      'backup-age', undef,
+      'database-backup-age', ['backup-age'],
       'Elapsed time (in hours) since a database was last backupped' ],
   ['server::sql',
       'sql', undef,
