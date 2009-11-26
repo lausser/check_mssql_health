@@ -1,12 +1,9 @@
 declare @dbname varchar(255)
 declare @check_mssql_health_USER varchar(255)
 declare @check_mssql_health_ROLE varchar(255)
-/*
+
 SET @check_mssql_health_USER = '"[Servername|Domainname]\Username"'
 SET @check_mssql_health_ROLE = 'Rolename'
-*/
-SET @check_mssql_health_USER = 'nagiorsch'
-SET @check_mssql_health_ROLE = 'schaworsch'
 
 declare dblist cursor for
   select name from sysdatabases WHERE name NOT IN ('master', 'tempdb', 'msdb') open dblist
