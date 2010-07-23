@@ -10,7 +10,8 @@ EXTRA_MODULES=\
   Nagios/DBD/MSSQL/Server/Memorypool.pm \
   Nagios/DBD/MSSQL/Server/Database/Datafile.pm \
   Nagios/DBD/MSSQL/Server/Database.pm \
-  Nagios/DBD/MSSQL/Server.pm
+  Nagios/DBD/MSSQL/Server.pm \
+  Nagios/Extraopts.pm
 EXTRA_DIST=check_mssql_health.pl $(EXTRA_MODULES)
 
 CLEANFILES=$(libexec_SCRIPTS)

@@ -78,9 +78,6 @@ my @modes = (
   ['server::memorypool::buffercache::hitratio',
       'mem-pool-data-buffer-hit-ratio', ['buffer-cache-hit-ratio'],
       'Data Buffer Cache Hit Ratio' ],
-  ['server::memorypool::buffercache::hitratio',
-      'mem-pool-data-buffer-hit-ratio', ['buffer-cache-hit-ratio'],
-      'Data Buffer Cache Hit Ratio' ],
 
 
   ['server::memorypool::buffercache::lazywrites',
@@ -262,11 +259,23 @@ my @params = (
     "eyecandy",
     "encode",
     "units=s",
-    "3");
+    "3",
+    "extra-opts:s");
 
 if (! GetOptions(\%commandline, @params)) {
   print_help();
   exit $ERRORS{UNKNOWN};
+}
+
+if (exists $commandline{'extra-opts'}) {
+  # read the extra file and overwrite other parameters
+  my $extras = Extraopts->new(file => $commandline{'extra-opts'}, commandline => \%commandline);
+  if (! $extras->is_valid()) {
+    printf "extra-opts are not valid: %s\n", $extras->{errors};
+    exit $ERRORS{UNKNOWN};
+  } else {
+    $extras->overwrite();
+  }
 }
 
 if (exists $commandline{version}) {
@@ -469,6 +478,7 @@ my %params = (
     units => $commandline{units},
     eyecandy => $commandline{eyecandy},
     statefilesdir => $STATEFILESDIR,
+    verbose => $commandline{verbose},
 );
 
 my $server = undef;

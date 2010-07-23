@@ -178,23 +178,40 @@ sub init {
     #$self->{maxsize} = "99999999999999999";
     ###################################################################################
     my $calc = {};
-    $self->{handle}->execute(q{
-      if object_id('tempdb..#FreeSpace') is null 
-        create table #FreeSpace(  
-          Drive varchar(10),  
-          MB_Free bigint  
-        ) 
-    });
-    $self->{handle}->execute(q{
-      DELETE FROM #FreeSpace
-    });
-    $self->{handle}->execute(q{
-      INSERT INTO #FreeSpace exec master.dbo.xp_fixeddrives
-    });
-    foreach($self->{handle}->fetchall_array(q{
-      SELECT * FROM #FreeSpace
-    })) {
-      $calc->{drive_mb}->{lc $_->[0]} = $_->[1];
+    if ($params{method} eq 'sqlcmd') {
+      foreach($self->{handle}->fetchall_array(q{
+        if object_id('tempdb..#FreeSpace') is null
+          create table #FreeSpace(
+            Drive varchar(10),
+            MB_Free bigint
+          )
+        go
+        DELETE FROM tempdb..#FreeSpace
+        INSERT INTO tempdb..#FreeSpace exec master.dbo.xp_fixeddrives
+        go
+        SELECT * FROM tempdb..#FreeSpace
+      })) {
+        $calc->{drive_mb}->{lc $_->[0]} = $_->[1];
+      }
+    } else {
+      $self->{handle}->execute(q{
+        if object_id('tempdb..#FreeSpace') is null 
+          create table #FreeSpace(  
+            Drive varchar(10),  
+            MB_Free bigint  
+          ) 
+      });
+      $self->{handle}->execute(q{
+        DELETE FROM #FreeSpace
+      });
+      $self->{handle}->execute(q{
+        INSERT INTO #FreeSpace exec master.dbo.xp_fixeddrives
+      });
+      foreach($self->{handle}->fetchall_array(q{
+        SELECT * FROM #FreeSpace
+      })) {
+        $calc->{drive_mb}->{lc $_->[0]} = $_->[1];
+      }
     }
     #$self->{handle}->execute(q{
     #  DROP TABLE #FreeSpace

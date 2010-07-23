@@ -651,9 +651,14 @@ sub save_state {
   my $self = shift;
   my %params = @_;
   my $extension = "";
+  my $mode = $params{mode};
+  if ($^O =~ /MSWin/) {
+    $mode =~ s/::/_/g;
+    $params{statefilesdir} = $self->system_vartmpdir();
+  }
   mkdir $params{statefilesdir} unless -d $params{statefilesdir};
   my $statefile = sprintf "%s/%s_%s", 
-      $params{statefilesdir}, ($params{hostname} || $params{server}), $params{mode};
+      $params{statefilesdir}, ($params{hostname} || $params{server}), $mode;
   $extension .= $params{differenciator} ? "_".$params{differenciator} : "";
   $extension .= $params{port} ? "_".$params{port} : "";
   $extension .= $params{database} ? "_".$params{database} : "";
@@ -679,8 +684,13 @@ sub load_state {
   my $self = shift;
   my %params = @_;
   my $extension = "";
+  my $mode = $params{mode};
+  if ($^O =~ /MSWin/) {
+    $mode =~ s/::/_/g;
+    $params{statefilesdir} = $self->system_vartmpdir();
+  }
   my $statefile = sprintf "%s/%s_%s", 
-      $params{statefilesdir}, ($params{hostname} || $params{server}), $params{mode};
+      $params{statefilesdir}, ($params{hostname} || $params{server}), $mode;
   $extension .= $params{differenciator} ? "_".$params{differenciator} : "";
   $extension .= $params{port} ? "_".$params{port} : "";
   $extension .= $params{database} ? "_".$params{database} : "";
@@ -848,6 +858,7 @@ sub new {
     hostname => $params{hostname},
     username => $params{username},
     password => $params{password},
+    verbose => $params{verbose},
     port => $params{port} || 1433,
     server => $params{server},
     handle => undef,
@@ -859,6 +870,8 @@ sub new {
     bless $self, "DBD::MSSQL::Server::Connection::Tsql";
   } elsif ($params{method} eq "sqlrelay") {
     bless $self, "DBD::MSSQL::Server::Connection::Sqlrelay";
+  } elsif ($params{method} eq "sqlcmd") {
+    bless $self, "DBD::MSSQL::Server::Connection::Sqlcmd";
   }
   $self->init(%params);
   return $self;
@@ -1149,7 +1162,7 @@ sub DESTROY {
   $self->{handle}->disconnect() if $self->{handle};
 }
 
-package DBD::MSSQL::Server::Connection::Tsql;
+package DBD::MSSQL::Server::Connection::Sqlcmd;
 
 use strict;
 use File::Temp qw/tempfile/;
@@ -1163,188 +1176,113 @@ sub init {
   my $self = shift;
   my %params = @_;
   my $retval = undef;
-  $self->{loginstring} = "traditional";
+  $self->{loginstring} = "hostport";
+  my $template = $self->{mode}.'XXXXX';
+  if ($^O =~ /MSWin/) {
+    $template =~ s/::/_/g;
+  }
   ($self->{sql_commandfile_handle}, $self->{sql_commandfile}) =
-      tempfile($self->{mode}."XXXXX", SUFFIX => ".sql", 
+      tempfile($template, SUFFIX => ".sql",
       DIR => $self->system_tmpdir() );
   close $self->{sql_commandfile_handle};
   ($self->{sql_resultfile_handle}, $self->{sql_resultfile}) =
-      tempfile($self->{mode}."XXXXX", SUFFIX => ".out", 
+      tempfile($template, SUFFIX => ".out",
       DIR => $self->system_tmpdir() );
   close $self->{sql_resultfile_handle};
+  ($self->{sql_outfile_handle}, $self->{sql_outfile}) =
+      tempfile($template, SUFFIX => ".out",
+      DIR => $self->system_tmpdir() );
+  close $self->{sql_outfile_handle};
+
   if ($self->{mode} =~ /^server::tnsping/) {
-    if (! $self->{connect}) {
-      $self->{errstr} = "Please specify a database";
-    } else {
-      $self->{sid} = $self->{connect};
-      $self->{user} ||= time;  # prefer an existing user
-      $self->{password} = time;
-    }
+    die "oracle leftover";
   } else {
-    if ($self->{connect} && ! $self->{user} && ! $self->{password} &&
-        $self->{connect} =~ /(\w+)\/(\w+)@(\w+)/) {
-      # --connect nagios/oradbmon@bba
-      $self->{connect} = $3;
-      $self->{user} = $1;
-      $self->{password} = $2;
-      $self->{sid} = $self->{connect};
-      if ($self->{user} eq "sys") {
-        delete $ENV{TWO_TASK};
-        $self->{loginstring} = "sys";
-      } else {
-        $self->{loginstring} = "traditional";
-      }
-    } elsif ($self->{connect} && ! $self->{user} && ! $self->{password} &&
-        $self->{connect} =~ /sysdba@(\w+)/) {
-      # --connect sysdba@bba
-      $self->{connect} = $1;
-      $self->{user} = "/";
-      $self->{sid} = $self->{connect};
-      $self->{loginstring} = "sysdba";
-    } elsif ($self->{connect} && ! $self->{user} && ! $self->{password} &&
-        $self->{connect} =~ /(\w+)/) {
-      # --connect bba
-      $self->{connect} = $1;
-      # maybe this is a os authenticated user
-      delete $ENV{TWO_TASK};
-      $self->{sid} = $self->{connect};
-      if ($^O ne "hpux") {       #hpux && 1.21 only accepts "DBI:MSSQL:SID"
-        $self->{connect} = "";   #linux 1.20 only accepts "DBI:MSSQL:" + MSSQL_SID
-      }
-      $self->{user} = '/';
-      $self->{password} = "";
-      $self->{loginstring} = "extauth";
-    } elsif ($self->{user} &&
-        $self->{user} =~ /^\/@(\w+)/) {
-      # --user /@ubba1
-      $self->{user} = $1;
-      $self->{sid} = $self->{connect};
-      $self->{loginstring} = "passwordstore";
-    } elsif ($self->{connect} && $self->{user} && ! $self->{password} &&
-        $self->{user} eq "sysdba") {
-      # --connect bba --user sysdba
-      $self->{connect} = $1;
-      $self->{user} = "/";
-      $self->{sid} = $self->{connect};
-      $self->{loginstring} = "sysdba";
-    } elsif ($self->{connect} && $self->{user} && $self->{password}) {
-      # --connect bba --user nagios --password oradbmon
-      $self->{sid} = $self->{connect};
-      $self->{loginstring} = "traditional";
+    # --server xy --username xy --password xy
+    # --hostname xy --username xy --password xy
+    # --hostname xy --port --username xy --password xy
+    if ($self->{server} && $self->{username} && $self->{password}) {
+      # --server bba --user nagios --password oradbmon
+      $self->{loginstring} = "server";
+    } elsif ($self->{hostname} && $self->{username} && $self->{password}) {
+      # --hostname bba --user nagios --password oradbmon
+      $self->{loginstring} = "server";
+      $self->{server} = sprintf 'tcp:%s,%s', $self->{hostname}, $self->{port};
     } else {
-      $self->{errstr} = "Please specify database, username and password";
+      $self->{errstr} = "Please specify servername, username and password";
       return undef;
     }
   }
   if (! exists $self->{errstr}) {
     eval {
-      $ENV{MSSQL_SID} = $self->{sid};
-      $ENV{PATH} = $ENV{MSSQL_HOME}."/bin".
-          (defined $ENV{PATH} ? 
-          ":".$ENV{PATH} : "");
-      $ENV{LD_LIBRARY_PATH} = $ENV{MSSQL_HOME}."/lib".
-          (defined $ENV{LD_LIBRARY_PATH} ? 
-          ":".$ENV{LD_LIBRARY_PATH} : "");
-      # am 30.9.2008 hat perl das /bin/sqlplus in $ENV{MSSQL_HOME}.'/bin/sqlplus' 
-      # eiskalt evaluiert und 
-      # /u00/app/mssql/product/11.1.0/db_1/u00/app/mssql/product/11.1.0/db_1/bin/sqlplus 
-      # draus gemacht. Leider nicht in Mini-Scripts reproduzierbar, sondern nur hier.
-      # Das ist der Grund fuer die vielen ' und .
-      my $sqlplus = $ENV{MSSQL_HOME}.'/'.'bin'.'/'.'sqlplus';
-      if ((-x $ENV{MSSQL_HOME}.'/'.'sqlplus') && ( -f $ENV{MSSQL_HOME}.'/'.'sqlplus')) {
-          $sqlplus = $ENV{MSSQL_HOME}.'/'.'sqlplus';
+      if (! exists $ENV{SQL_HOME}) {
+        if ($^O =~ /MSWin/) {
+          foreach my $path (split(';', $ENV{PATH})) {
+            if (-x $path.'/sqlcmd.exe') {
+              $ENV{SQL_HOME} = $path;
+              last;
+            }
+          }
+        } else {
+          foreach my $path (split(':', $ENV{PATH})) {
+            if (-x $path.'/bin/sqlcmd') {
+              $ENV{SQL_HOME} = $path;
+              last;
+            }
+          }
+        }
+        $ENV{SQL_HOME} |= '';
+      } else {
+        if ($^O =~ /MSWin/) {
+          $ENV{PATH} = $ENV{SQL_HOME}.
+              (defined $ENV{PATH} ? ";".$ENV{PATH} : "");
+        } else {
+          $ENV{PATH} = $ENV{SQL_HOME}."/bin".
+              (defined $ENV{PATH} ? ":".$ENV{PATH} : "");
+          $ENV{LD_LIBRARY_PATH} = $ENV{SQL_HOME}."/lib".
+              (defined $ENV{LD_LIBRARY_PATH} ? ":".$ENV{LD_LIBRARY_PATH} : "");
+        }
       }
-      my $tnsping = $ENV{MSSQL_HOME}.'/'.'bin'.'/'.'tnsping';
-      if (! -x $sqlplus) {
-        die "nosqlplus\n";
+      my $sqlcmd = undef;
+      my $tnsping = undef;
+      if (-x $ENV{SQL_HOME}.'/'.'bin'.'/'.'sqlcmd') {
+        $sqlcmd = $ENV{SQL_HOME}.'/'.'bin'.'/'.'sqlcmd';
+      } elsif (-x $ENV{SQL_HOME}.'/'.'sqlcmd') {
+        $sqlcmd = $ENV{SQL_HOME}.'/'.'sqlcmd';
+      } elsif (-x $ENV{SQL_HOME}.'/'.'sqlcmd.exe') {
+        $sqlcmd = $ENV{SQL_HOME}.'/'.'sqlcmd.exe';
+      } elsif (-x '/usr/bin/sqlcmd') {
+        $sqlcmd = '/usr/bin/sqlcmd';
+      }
+      if (! $sqlcmd) {
+        die "nosqlcmd\n";
       }
       if ($self->{mode} =~ /^server::tnsping/) {
-        if ($self->{loginstring} eq "traditional") {
-          $self->{sqlplus} = sprintf "%s -S %s/%s@%s < /dev/null",
-              $sqlplus,
-              $self->{user}, $self->{password}, $self->{sid};
-        } elsif ($self->{loginstring} eq "extauth") {
-          $self->{sqlplus} = sprintf "%s -S / < /dev/null",
-              $sqlplus;
-        } elsif ($self->{loginstring} eq "passwordstore") {
-          $self->{sqlplus} = sprintf "%s -S /@%s < /dev/null",
-              $sqlplus,
-              $self->{user};
-        } elsif ($self->{loginstring} eq "sysdba") {
-          $self->{sqlplus} = sprintf "%s -S / as sysdba < /dev/null",
-              $sqlplus;
-        } elsif ($self->{loginstring} eq "sys") {
-          $self->{sqlplus} = sprintf "%s -S %s/%s@%s as sysdba < /dev/null",
-              $sqlplus,
-              $self->{user}, $self->{password}, $self->{sid};
-        }
+        die "oracle leftover";
       } else {
-        if ($self->{loginstring} eq "traditional") {
-          $self->{sqlplus} = sprintf "%s -S %s/%s@%s < %s > %s",
-              $sqlplus,
-              $self->{user}, $self->{password}, $self->{sid},
+        if ($self->{loginstring} eq "server") {
+          $self->{sqlcmd} = sprintf '"%s" -S %s -U %s -P %s -i "%s" -o "%s"',
+              $sqlcmd, $self->{server}, $self->{username}, $self->{password},
               $self->{sql_commandfile}, $self->{sql_resultfile};
-        } elsif ($self->{loginstring} eq "extauth") {
-          $self->{sqlplus} = sprintf "%s -S / < %s > %s",
-              $sqlplus,
-              $self->{sql_commandfile}, $self->{sql_resultfile};
-        } elsif ($self->{loginstring} eq "passwordstore") {
-          $self->{sqlplus} = sprintf "%s -S /@%s < %s > %s",
-              $sqlplus,
-              $self->{user},
-              $self->{sql_commandfile}, $self->{sql_resultfile};
-        } elsif ($self->{loginstring} eq "sysdba") {
-          $self->{sqlplus} = sprintf "%s -S / as sysdba < %s > %s",
-              $sqlplus,
-              $self->{sql_commandfile}, $self->{sql_resultfile};
-        } elsif ($self->{loginstring} eq "sys") {
-          $self->{sqlplus} = sprintf "%s -S %s/%s@%s as sysdba < %s > %s",
-              $sqlplus,
-              $self->{user}, $self->{password}, $self->{sid},
-              $self->{sql_commandfile}, $self->{sql_resultfile};
+          $self->{sqlcmd} .= ' -h-1 -s"|" -W';
         }
       }
   
       use POSIX ':signal_h';
       local $SIG{'ALRM'} = sub {
-        die "alarm\n";
+        die "timeout\n";
       };
-      my $mask = POSIX::SigSet->new( SIGALRM );
-      my $action = POSIX::SigAction->new(
-          sub { die "alarm\n" ; }, $mask);
-      my $oldaction = POSIX::SigAction->new();
-      sigaction(SIGALRM ,$action ,$oldaction );
-      alarm($self->{timeout} - 1); # 1 second before the global unknown timeout
-  
-      if ($self->{mode} =~ /^server::tnsping/) {
-        if (-x $tnsping) {
-          my $exit_output = `$tnsping $self->{sid}`;
-          if ($?) {
-          #  printf STDERR "tnsping exit bumm \n";
-          # immer 1 bei misserfolg
-          }
-          if ($exit_output =~ /^OK \(\d+/m) {
-            die "ORA-01017"; # fake a successful connect with wrong password
-          } elsif ($exit_output =~ /^(TNS\-\d+)/m) {
-            die $1;
-          } else {
-            die "TNS-03505";
-          }
-        } else {
-          my $exit_output = `$self->{sqlplus}`;
-          if ($?) {
-            printf STDERR "ping exit bumm \n";
-          }
-          $exit_output =~ s/\n//g;
-          $exit_output =~ s/at $0//g;
-          chomp $exit_output;
-          die $exit_output;
-        }
-      } else {
-        my $answer = $self->fetchrow_array(
-            q{ SELECT 42 FROM dual});
-        die unless defined $answer and $answer == 42;
+      if ($^O !~ /MSWin/) {
+        my $mask = POSIX::SigSet->new( SIGALRM );
+        my $action = POSIX::SigAction->new(
+            sub { die "alarm\n" ; }, $mask);
+        my $oldaction = POSIX::SigAction->new();
+        sigaction(SIGALRM ,$action ,$oldaction );
       }
+      alarm($self->{timeout} - 1); # 1 second before the global unknown timeout
+
+      my $answer = $self->fetchrow_array(
+          q{ SELECT 'schnorch' });
+      die unless defined $answer and $answer eq 'schnorch';
       $retval = $self;
     };
     if ($@) {
@@ -1373,8 +1311,10 @@ sub fetchrow_array {
       $sql =~ s/\?/'$_'/;
     }
   }
+  $self->trace(sprintf "SQL (? resolved):\n%s\nARGS:\n%s\n",
+      $sql, Data::Dumper::Dumper(\@arguments));
   $self->create_commandfile($sql);
-  my $exit_output = `$self->{sqlplus}`;
+  my $exit_output = `$self->{sqlcmd}`;
   if ($?) {
     printf STDERR "fetchrow_array exit bumm \n";
     my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; <> };
@@ -1388,6 +1328,8 @@ sub fetchrow_array {
         map { s/^\s+([\.\d]+)$/$1/g; $_ }         # strip leading space from numbers
         map { s/\s+$//g; $_ }                     # strip trailing space
         split(/\|/, (split(/\n/, $output))[0]);
+    $self->trace(sprintf "RESULT:\n%s\n",
+        Data::Dumper::Dumper(\@row));
   }
   if ($@) {
     $self->debug(sprintf "bumm %s", $@);
@@ -1412,9 +1354,10 @@ sub fetchall_array {
       $sql =~ s/\?/'$_'/;
     }
   }
-
+  $self->trace(sprintf "SQL (? resolved):\n%s\nARGS:\n%s\n",
+      $sql, Data::Dumper::Dumper(\@arguments));
   $self->create_commandfile($sql);
-  my $exit_output = `$self->{sqlplus}`;
+  my $exit_output = `$self->{sqlcmd}`;
   if ($?) {
     printf STDERR "fetchrow_array exit bumm %s\n", $exit_output;
     my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; <> };
@@ -1429,10 +1372,12 @@ sub fetchall_array {
         map { s/^\s+([\.\d]+)$/$1/g; $_ }
         map { s/\s+$//g; $_ }
         split /\|/
-    ] } grep { ! /^\d+ rows selected/ } 
-        grep { ! /^Elapsed: / }
-        grep { ! /^\s*$/ } split(/\n/, $output);
+    ] } grep { ! /^\(\d+ rows affected\)/ } 
+        grep { ! /^\s*$/ }
+        grep { ! /^Database name .* ignored, referencing object in/ } split(/\n/, $output);
     $rows = \@rows;
+    $self->trace(sprintf "RESULT:\n%s\n",
+        Data::Dumper::Dumper($rows));
   }
   if ($@) {
     $self->debug(sprintf "bumm %s", $@);
@@ -1494,18 +1439,18 @@ sub DESTROY {
 sub create_commandfile {
   my $self = shift;
   my $sql = shift;
-  open CMDCMD, "> $self->{sql_commandfile}"; 
-  printf CMDCMD "SET HEADING OFF\n";
-  printf CMDCMD "SET PAGESIZE 0\n";
-  printf CMDCMD "SET LINESIZE 32767\n";
-  printf CMDCMD "SET COLSEP '|'\n";
-  printf CMDCMD "SET TAB OFF\n";
-  printf CMDCMD "SET TRIMSPOOL ON\n";
-  printf CMDCMD "SET NUMFORMAT 9.999999EEEE\n";
-  printf CMDCMD "SPOOL %s\n", $self->{sql_resultfile};
+  open CMDCMD, "> $self->{sql_commandfile}";
+  #printf CMDCMD "SET HEADING OFF\n";
+  #printf CMDCMD "SET PAGESIZE 0\n";
+  #printf CMDCMD "SET LINESIZE 32767\n";
+  #printf CMDCMD "SET COLSEP '|'\n";
+  #printf CMDCMD "SET TAB OFF\n";
+  #printf CMDCMD "SET TRIMSPOOL ON\n";
+  #printf CMDCMD "SET NUMFORMAT 9.999999EEEE\n";
+  #printf CMDCMD "SPOOL %s\n", $self->{sql_resultfile};
 #  printf CMDCMD "ALTER SESSION SET NLS_NUMERIC_CHARACTERS='.,';\n/\n";
-  printf CMDCMD "%s\n/\n", $sql;
-  printf CMDCMD "EXIT\n";
+  printf CMDCMD "%s\n", $sql;
+  printf CMDCMD "go\n";
   close CMDCMD;
 }
 
