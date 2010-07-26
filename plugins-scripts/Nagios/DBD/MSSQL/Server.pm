@@ -866,8 +866,8 @@ sub new {
   bless $self, $class;
   if ($params{method} eq "dbi") {
     bless $self, "DBD::MSSQL::Server::Connection::Dbi";
-  } elsif ($params{method} eq "tsql") {
-    bless $self, "DBD::MSSQL::Server::Connection::Tsql";
+  } elsif ($params{method} eq "sqsh") {
+    bless $self, "DBD::MSSQL::Server::Connection::Sqsh";
   } elsif ($params{method} eq "sqlrelay") {
     bless $self, "DBD::MSSQL::Server::Connection::Sqlrelay";
   } elsif ($params{method} eq "sqlcmd") {
@@ -1260,7 +1260,7 @@ sub init {
         die "oracle leftover";
       } else {
         if ($self->{loginstring} eq "server") {
-          $self->{sqlcmd} = sprintf '"%s" -S %s -U %s -P %s -i "%s" -o "%s"',
+          $self->{sqlcmd} = sprintf '"%s" -S %s -U "%s" -P "%s" -i "%s" -o "%s"',
               $sqlcmd, $self->{server}, $self->{username}, $self->{password},
               $self->{sql_commandfile}, $self->{sql_resultfile};
           $self->{sqlcmd} .= ' -h-1 -s"|" -W';
@@ -1440,15 +1440,289 @@ sub create_commandfile {
   my $self = shift;
   my $sql = shift;
   open CMDCMD, "> $self->{sql_commandfile}";
-  #printf CMDCMD "SET HEADING OFF\n";
-  #printf CMDCMD "SET PAGESIZE 0\n";
-  #printf CMDCMD "SET LINESIZE 32767\n";
-  #printf CMDCMD "SET COLSEP '|'\n";
-  #printf CMDCMD "SET TAB OFF\n";
-  #printf CMDCMD "SET TRIMSPOOL ON\n";
-  #printf CMDCMD "SET NUMFORMAT 9.999999EEEE\n";
-  #printf CMDCMD "SPOOL %s\n", $self->{sql_resultfile};
-#  printf CMDCMD "ALTER SESSION SET NLS_NUMERIC_CHARACTERS='.,';\n/\n";
+  printf CMDCMD "%s\n", $sql;
+  printf CMDCMD "go\n";
+  close CMDCMD;
+}
+
+package DBD::MSSQL::Server::Connection::Sqsh;
+
+use strict;
+use File::Temp qw/tempfile/;
+
+our @ISA = qw(DBD::MSSQL::Server::Connection);
+
+my %ERRORS=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
+my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
+
+sub init {
+  my $self = shift;
+  my %params = @_;
+  my $retval = undef;
+  $self->{loginstring} = "hostport";
+  my $template = $self->{mode}.'XXXXX';
+  if ($^O =~ /MSWin/) {
+    $template =~ s/::/_/g;
+  }
+  ($self->{sql_commandfile_handle}, $self->{sql_commandfile}) =
+      tempfile($template, SUFFIX => ".sql",
+      DIR => $self->system_tmpdir() );
+  close $self->{sql_commandfile_handle};
+  ($self->{sql_resultfile_handle}, $self->{sql_resultfile}) =
+      tempfile($template, SUFFIX => ".out",
+      DIR => $self->system_tmpdir() );
+  close $self->{sql_resultfile_handle};
+  ($self->{sql_outfile_handle}, $self->{sql_outfile}) =
+      tempfile($template, SUFFIX => ".out",
+      DIR => $self->system_tmpdir() );
+  close $self->{sql_outfile_handle};
+
+  if ($self->{mode} =~ /^server::tnsping/) {
+    die "oracle leftover";
+  } else {
+    # --server xy --username xy --password xy
+    # --hostname xy --username xy --password xy
+    # --hostname xy --port --username xy --password xy
+    if ($self->{server} && $self->{username} && $self->{password}) {
+      # --server bba --user nagios --password oradbmon
+      $self->{loginstring} = "server";
+    } elsif ($self->{hostname} && $self->{username} && $self->{password}) {
+      # --hostname bba --user nagios --password oradbmon
+      $self->{loginstring} = "server";
+      $self->{server} = sprintf 'tcp:%s,%s', $self->{hostname}, $self->{port};
+    } else {
+      $self->{errstr} = "Please specify servername, username and password";
+      return undef;
+    }
+  }
+  if (! exists $self->{errstr}) {
+    eval {
+      if (! exists $ENV{SQL_HOME}) {
+        if ($^O =~ /MSWin/) {
+          foreach my $path (split(';', $ENV{PATH})) {
+            if (-x $path.'/sqsh.exe') {
+              $ENV{SQL_HOME} = $path;
+              last;
+            }
+          }
+        } else {
+          foreach my $path (split(':', $ENV{PATH})) {
+            if (-x $path.'/bin/sqsh') {
+              $ENV{SQL_HOME} = $path;
+              last;
+            }
+          }
+        }
+        $ENV{SQL_HOME} |= '';
+      } else {
+        if ($^O =~ /MSWin/) {
+          $ENV{PATH} = $ENV{SQL_HOME}.
+              (defined $ENV{PATH} ? ";".$ENV{PATH} : "");
+        } else {
+          $ENV{PATH} = $ENV{SQL_HOME}."/bin".
+              (defined $ENV{PATH} ? ":".$ENV{PATH} : "");
+          $ENV{LD_LIBRARY_PATH} = $ENV{SQL_HOME}."/lib".
+              (defined $ENV{LD_LIBRARY_PATH} ? ":".$ENV{LD_LIBRARY_PATH} : "");
+        }
+      }
+      my $sqsh = undef;
+      my $tnsping = undef;
+      if (-x $ENV{SQL_HOME}.'/'.'bin'.'/'.'sqsh') {
+        $sqsh = $ENV{SQL_HOME}.'/'.'bin'.'/'.'sqsh';
+      } elsif (-x $ENV{SQL_HOME}.'/'.'sqsh') {
+        $sqsh = $ENV{SQL_HOME}.'/'.'sqsh';
+      } elsif (-x $ENV{SQL_HOME}.'/'.'sqsh.exe') {
+        $sqsh = $ENV{SQL_HOME}.'/'.'sqsh.exe';
+      } elsif (-x '/usr/bin/sqsh') {
+        $sqsh = '/usr/bin/sqsh';
+      }
+      if (! $sqsh) {
+        die "nosqsh\n";
+      }
+      if ($self->{mode} =~ /^server::tnsping/) {
+        die "oracle leftover";
+      } else {
+        if ($self->{loginstring} eq "server") {
+          $self->{sqsh} = sprintf '"%s" -S %s -U "%s" -P "%s" -i "%s" -o "%s"',
+              $sqsh, $self->{server}, $self->{username}, $self->{password},
+              $self->{sql_commandfile}, $self->{sql_resultfile};
+          $self->{sqsh} .= ' -h -s"|"';
+        }
+      }
+  
+      use POSIX ':signal_h';
+      local $SIG{'ALRM'} = sub {
+        die "timeout\n";
+      };
+      if ($^O !~ /MSWin/) {
+        my $mask = POSIX::SigSet->new( SIGALRM );
+        my $action = POSIX::SigAction->new(
+            sub { die "alarm\n" ; }, $mask);
+        my $oldaction = POSIX::SigAction->new();
+        sigaction(SIGALRM ,$action ,$oldaction );
+      }
+      alarm($self->{timeout} - 1); # 1 second before the global unknown timeout
+
+      my $answer = $self->fetchrow_array(
+          q{ SELECT 'schnorch' });
+      die unless defined $answer and $answer eq 'schnorch';
+      $retval = $self;
+    };
+    if ($@) {
+      $self->{errstr} = $@;
+      $self->{errstr} =~ s/at $0 .*//g;
+      chomp $self->{errstr};
+      $retval = undef;
+    }
+  }
+  $self->{tac} = Time::HiRes::time();
+  return $retval;
+}
+
+
+sub fetchrow_array {
+  my $self = shift;
+  my $sql = shift;
+  my @arguments = @_;
+  my $sth = undef;
+  my @row = ();
+  foreach (@arguments) {
+    # replace the ? by the parameters
+    if (/^\d+$/) {
+      $sql =~ s/\?/$_/;
+    } else {
+      $sql =~ s/\?/'$_'/;
+    }
+  }
+  $self->trace(sprintf "SQL (? resolved):\n%s\nARGS:\n%s\n",
+      $sql, Data::Dumper::Dumper(\@arguments));
+  $self->create_commandfile($sql);
+  my $exit_output = `$self->{sqsh}`;
+  if ($?) {
+    printf STDERR "fetchrow_array exit bumm \n";
+    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; <> };
+    my @oerrs = map {
+      /(ORA\-\d+:.*)/ ? $1 : ();
+    } split(/\n/, $output);
+    $self->{errstr} = join(" ", @oerrs);
+  } else {
+    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; <> };
+    @row = map { convert($_) } 
+        map { s/^\s+([\.\d]+)$/$1/g; $_ }         # strip leading space from numbers
+        map { s/\s+$//g; $_ }                     # strip trailing space
+        split(/\|/, (split(/\n/, $output))[0]);
+    $self->trace(sprintf "RESULT:\n%s\n",
+        Data::Dumper::Dumper(\@row));
+  }
+  if ($@) {
+    $self->debug(sprintf "bumm %s", $@);
+  }
+  unlink $self->{sql_commandfile};
+  unlink $self->{sql_resultfile};
+  return $row[0] unless wantarray;
+  return @row;
+}
+
+sub fetchall_array {
+  my $self = shift;
+  my $sql = shift;
+  my @arguments = @_;
+  my $sth = undef;
+  my $rows = undef;
+  foreach (@arguments) {
+    # replace the ? by the parameters
+    if (/^\d+$/) {
+      $sql =~ s/\?/$_/;
+    } else {
+      $sql =~ s/\?/'$_'/;
+    }
+  }
+  $self->trace(sprintf "SQL (? resolved):\n%s\nARGS:\n%s\n",
+      $sql, Data::Dumper::Dumper(\@arguments));
+  $self->create_commandfile($sql);
+  my $exit_output = `$self->{sqsh}`;
+  if ($?) {
+    printf STDERR "fetchrow_array exit bumm %s\n", $exit_output;
+    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; <> };
+    my @oerrs = map {
+      /(ORA\-\d+:.*)/ ? $1 : ();
+    } split(/\n/, $output);
+    $self->{errstr} = join(" ", @oerrs);
+  } else {
+    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; <> };
+    my @rows = map { [ 
+        map { convert($_) } 
+        map { s/^\s+([\.\d]+)$/$1/g; $_ }
+        map { s/\s+$//g; $_ }
+        split /\|/
+    ] } grep { ! /^\(\d+ rows affected\)/ } 
+        grep { ! /^\s*$/ }
+        grep { ! /^Database name .* ignored, referencing object in/ } split(/\n/, $output);
+    $rows = \@rows;
+    $self->trace(sprintf "RESULT:\n%s\n",
+        Data::Dumper::Dumper($rows));
+  }
+  if ($@) {
+    $self->debug(sprintf "bumm %s", $@);
+  }
+  unlink $self->{sql_commandfile};
+  unlink $self->{sql_resultfile};
+  return @{$rows};
+}
+
+sub func {
+  my $self = shift;
+  my $function = shift;
+  $self->{handle}->func(@_);
+}
+
+sub convert {
+  my $n = shift;
+  # mostly used to convert numbers in scientific notation
+  if ($n =~ /^\s*\d+\s*$/) {
+    return $n;
+  } elsif ($n =~ /^\s*([-+]?)(\d*[\.,]*\d*)[eE]{1}([-+]?)(\d+)\s*$/) {
+    my ($vor, $num, $sign, $exp) = ($1, $2, $3, $4);
+    $n =~ s/E/e/g;
+    $n =~ s/,/\./g;
+    $num =~ s/,/\./g;
+    my $sig = $sign eq '-' ? "." . ($exp - 1 + length $num) : '';
+    my $dec = sprintf "%${sig}f", $n;
+    $dec =~ s/\.[0]+$//g;
+    return $dec;
+  } elsif ($n =~ /^\s*([-+]?)(\d+)[\.,]*(\d*)\s*$/) {
+    return $1.$2.".".$3;
+  } elsif ($n =~ /^\s*(.*?)\s*$/) {
+    return $1;
+  } else {
+    return $n;
+  }
+}
+
+
+sub execute {
+  my $self = shift;
+  my $sql = shift;
+  eval {
+    my $sth = $self->{handle}->prepare($sql);
+    $sth->execute();
+  };
+  if ($@) {
+    printf STDERR "bumm %s\n", $@;
+  }
+}
+
+sub DESTROY {
+  my $self = shift;
+  $self->trace("try to clean up command and result files");
+  unlink $self->{sql_commandfile} if -f $self->{sql_commandfile};
+  unlink $self->{sql_resultfile} if -f $self->{sql_resultfile};
+}
+
+sub create_commandfile {
+  my $self = shift;
+  my $sql = shift;
+  open CMDCMD, "> $self->{sql_commandfile}";
   printf CMDCMD "%s\n", $sql;
   printf CMDCMD "go\n";
   close CMDCMD;

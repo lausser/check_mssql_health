@@ -178,7 +178,7 @@ sub init {
     #$self->{maxsize} = "99999999999999999";
     ###################################################################################
     my $calc = {};
-    if ($params{method} eq 'sqlcmd') {
+    if ($params{method} eq 'sqlcmd' || $params{method} eq 'sqsh') {
       foreach($self->{handle}->fetchall_array(q{
         if object_id('tempdb..#FreeSpace') is null
           create table #FreeSpace(
