@@ -1006,6 +1006,9 @@ sub init {
     } else {
       $self->{dsn} .= sprintf ";server=%s", $self->{server};
     }
+    if ($params{database}) {
+      $self->{dsn} .= sprintf ";database=%s", $params{database};
+    }
   }
   if (! exists $self->{errstr}) {
     eval {
