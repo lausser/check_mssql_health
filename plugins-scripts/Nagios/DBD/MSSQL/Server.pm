@@ -1011,6 +1011,7 @@ sub init {
     }
   }
   if (! exists $self->{errstr}) {
+    my $stderrvar;
     eval {
       require DBI;
       use POSIX ':signal_h';
@@ -1023,6 +1024,9 @@ sub init {
       my $oldaction = POSIX::SigAction->new();
       sigaction(SIGALRM ,$action ,$oldaction );
       alarm($self->{timeout} - 1); # 1 second before the global unknown timeout
+      *SAVEERR = *STDERR;
+      open OUT ,'>',\$stderrvar;
+      *STDERR = *OUT;
       if ($self->{handle} = DBI->connect(
           $self->{dsn},
           $self->{username},
@@ -1034,10 +1038,13 @@ sub init {
         $self->{errstr} = "connect failed";
         return undef;
       }
+      *STDERR = *SAVEERR;
     };
     if ($@) {
       $self->{errstr} = $@;
       $retval = undef;
+    } elsif ($stderrvar && $stderrvar =~ /can't change context to database/) {
+      $self->{errstr} = $stderrvar;
     }
   }
   $self->{tac} = Time::HiRes::time();
