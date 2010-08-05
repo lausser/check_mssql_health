@@ -120,12 +120,23 @@ sub print_usage () {
     $PROGNAME [-v] [-t <timeout>] --hostname=<db server hostname>
         --username=<username> --password=<password> [--port <port>]
         --mode=<mode>
+    $PROGNAME [-v] [-t <timeout>] --server=<db server>
+        --username=<username> --password=<password>
+        --mode=<mode>
     $PROGNAME [-h | --help]
     $PROGNAME [-V | --version]
 
   Options:
     --hostname
        the database server
+    --port
+       the database server's port
+    --server
+       the name of a predefined connection
+    --currentdb
+       the name of a database which is used as the current database
+       for the connection. (don't use this parameter unless you
+       know what you're doing)
     --username
        the mssql user
     --password
@@ -237,6 +248,7 @@ my @params = (
     "password=s",
     "port=i",
     "server=s",
+    "currentdb=s",
     "mode|m=s",
     "tablespace=s",
     "database=s",
@@ -260,6 +272,7 @@ my @params = (
     "encode",
     "units=s",
     "3",
+    "with-mymodules-dyn-dir=s",
     "extra-opts:s");
 
 if (! GetOptions(\%commandline, @params)) {
@@ -316,7 +329,12 @@ if (exists $commandline{scream}) {
 #  $DBD::MSSQL::Server::hysterical = exists $commandline{scream};
 }
 
-$DBD::MSSQL::Server::my_modules_dyn_dir = '#MYMODULES_DYN_DIR#';
+if (exists $commandline{'with-mymodules-dyn-dir'}) {
+  $DBD::MSSQL::Server::my_modules_dyn_dir = $commandline{'with-mymodules-dyn-dir'};
+} else {
+  $DBD::MSSQL::Server::my_modules_dyn_dir = '#MYMODULES_DYN_DIR#';
+}
+
 
 if (exists $commandline{environment}) {
   # if the desired environment variable values are different from
@@ -463,6 +481,9 @@ my %params = (
     server => $commandline{server}  || 
         $ENV{NAGIOS__SERVICEMSSQL_SERVER} ||
         $ENV{NAGIOS__HOSTMSSQL_SERVER},
+    currentdb => $commandline{currentdb}  || 
+        $ENV{NAGIOS__SERVICEMSSQL_CURRENTDB} ||
+        $ENV{NAGIOS__HOSTMSSQL_CURRENTDB},
     warningrange => $commandline{warning},
     criticalrange => $commandline{critical},
     absolute => $commandline{absolute},

@@ -861,6 +861,7 @@ sub new {
     verbose => $params{verbose},
     port => $params{port} || 1433,
     server => $params{server},
+    currentdb => $params{currentdb},
     handle => undef,
   };
   bless $self, $class;
@@ -1006,8 +1007,8 @@ sub init {
     } else {
       $self->{dsn} .= sprintf ";server=%s", $self->{server};
     }
-    if ($params{database}) {
-      $self->{dsn} .= sprintf ";database=%s", $params{database};
+    if ($params{currentdb}) {
+      $self->{dsn} .= sprintf ";database=%s", $params{currentdb};
     }
   }
   if (! exists $self->{errstr}) {
@@ -1250,8 +1251,9 @@ sub init {
         die "oracle leftover";
       } else {
         if ($self->{loginstring} eq "server") {
-          $self->{sqlcmd} = sprintf '"%s" -S %s -U "%s" -P "%s" -i "%s" -o "%s"',
+          $self->{sqlcmd} = sprintf '"%s" -S %s -U "%s" -P "%s" %s -i "%s" -o "%s"',
               $sqlcmd, $self->{server}, $self->{username}, $self->{password},
+              ($self->{currentdb} ? "-d ".$self->{currentdb} : ""),
               $self->{sql_commandfile}, $self->{sql_resultfile};
           $self->{sqlcmd} .= ' -h-1 -s"|" -W';
         }
