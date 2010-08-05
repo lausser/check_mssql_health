@@ -8,8 +8,8 @@
 
 1.5.5
 - backup-age is now an alias for the "official" database-backup-age
-- enable conenction to a specific database with the --database parameter
 - catch the "can't change context to database" error
+- --mode sqlcmd
 
 1.5.3 2009-11-02
 - fixed a bug in mode database-free (results are more accurate now)
