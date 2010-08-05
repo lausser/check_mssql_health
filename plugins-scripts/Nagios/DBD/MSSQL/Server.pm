@@ -1225,46 +1225,26 @@ sub init {
   if (! exists $self->{errstr}) {
     eval {
       if (! exists $ENV{SQL_HOME}) {
-        if ($^O =~ /MSWin/) {
-          foreach my $path (split(';', $ENV{PATH})) {
-            if (-x $path.'/sqlcmd.exe') {
-              $ENV{SQL_HOME} = $path;
-              last;
-            }
-          }
-        } else {
-          foreach my $path (split(':', $ENV{PATH})) {
-            if (-x $path.'/bin/sqlcmd') {
-              $ENV{SQL_HOME} = $path;
-              last;
-            }
+        foreach my $path (split(';', $ENV{PATH})) {
+          $self->trace(sprintf "try to find sqlcmd.exe in %s", $path);
+          if (-x $path.'/sqlcmd.exe') {
+            $ENV{SQL_HOME} = $path;
+            last;
           }
         }
         $ENV{SQL_HOME} |= '';
       } else {
-        if ($^O =~ /MSWin/) {
-          $ENV{PATH} = $ENV{SQL_HOME}.
-              (defined $ENV{PATH} ? ";".$ENV{PATH} : "");
-        } else {
-          $ENV{PATH} = $ENV{SQL_HOME}."/bin".
-              (defined $ENV{PATH} ? ":".$ENV{PATH} : "");
-          $ENV{LD_LIBRARY_PATH} = $ENV{SQL_HOME}."/lib".
-              (defined $ENV{LD_LIBRARY_PATH} ? ":".$ENV{LD_LIBRARY_PATH} : "");
-        }
+        $ENV{PATH} = $ENV{SQL_HOME}.
+            (defined $ENV{PATH} ? ";".$ENV{PATH} : "");
       }
       my $sqlcmd = undef;
-      my $tnsping = undef;
-      if (-x $ENV{SQL_HOME}.'/'.'bin'.'/'.'sqlcmd') {
-        $sqlcmd = $ENV{SQL_HOME}.'/'.'bin'.'/'.'sqlcmd';
-      } elsif (-x $ENV{SQL_HOME}.'/'.'sqlcmd') {
-        $sqlcmd = $ENV{SQL_HOME}.'/'.'sqlcmd';
-      } elsif (-x $ENV{SQL_HOME}.'/'.'sqlcmd.exe') {
+      if (-x $ENV{SQL_HOME}.'/'.'sqlcmd.exe') {
         $sqlcmd = $ENV{SQL_HOME}.'/'.'sqlcmd.exe';
-      } elsif (-x '/usr/bin/sqlcmd') {
-        $sqlcmd = '/usr/bin/sqlcmd';
       }
       if (! $sqlcmd) {
         die "nosqlcmd\n";
+      } else {
+        $self->trace(sprintf "found %s", $sqlcmd);
       }
       if ($self->{mode} =~ /^server::tnsping/) {
         die "oracle leftover";
