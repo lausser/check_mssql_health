@@ -3,6 +3,7 @@
 ###############################################
 
 1.5.6 2010-08-05
+- new parameter --dbthresholds. thresholds can now also be deposited in the table check_mssql_health_thresholds
 - added --currentdb so that the plugin can connect to a non-default database
 - --with-mymodules-dyn-dir on the commandline overrides the configure-option of the same name
 
