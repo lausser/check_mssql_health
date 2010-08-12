@@ -577,7 +577,7 @@ sub set_global_db_thresholds {
   my $params = shift;
   my $warning = undef;
   my $critical = undef;
-  return unless $params{dbthresholds};
+  return unless $params->{dbthresholds};
   eval {
     my $find_sql = undef;
     if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
