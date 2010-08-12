@@ -463,7 +463,7 @@ my %params = (
            ( defined $_->[2] && grep { $commandline{mode} eq $_ } @{$_->[2]}) 
         } @modes
     )[0],
-    racmode => $racmode,
+    cmdlinemode => $commandline{mode},
     method => $commandline{method} ||
         $ENV{NAGIOS__SERVICEMSSQL_METH} ||
         $ENV{NAGIOS__HOSTMSSQL_METH} || 'dbi',
