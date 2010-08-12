@@ -593,7 +593,7 @@ sub set_global_db_thresholds {
     }
     if ($self->{handle}->fetchrow_array($find_sql)) {
       my @dbthresholds = $self->{handle}->fetchall_array(q{
-          SELECT * FROM check_oracle_health_thresholds
+          SELECT * FROM check_mssql_health_thresholds
       });
       $params->{dbthresholds} = \@dbthresholds;
       foreach (@dbthresholds) {
