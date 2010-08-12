@@ -142,6 +142,7 @@ sub init {
   my $self = shift;
   my %params = @_;
   $self->init_nagios();
+  $self->set_local_db_thresholds(%params);
   if ($params{mode} =~ /server::database::datafile/) {
     $params{database} = $self->{name};
     DBD::MSSQL::Server::Database::Datafile::init_datafiles(%params);
