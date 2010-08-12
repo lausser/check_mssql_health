@@ -692,10 +692,10 @@ sub DESTROY {
       $handle2 = ref($self->{handle}->{handle});
     }
   }
-  $self->trace(sprintf "DESTROY %s with handle %s %s", ref($self), $handle1, $handle2);
+  #$self->trace(sprintf "DESTROY %s with handle %s %s", ref($self), $handle1, $handle2);
   if (ref($self) eq "DBD::MSSQL::Server") {
   }
-  $self->trace(sprintf "DESTROY %s exit with handle %s %s", ref($self), $handle1, $handle2);
+  #$self->trace(sprintf "DESTROY %s exit with handle %s %s", ref($self), $handle1, $handle2);
   if (ref($self) eq "DBD::MSSQL::Server") {
     #printf "humpftata\n";
   }
