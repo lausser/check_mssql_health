@@ -44,6 +44,7 @@ sub new {
     timeout => $params{timeout},
     warningrange => $params{warningrange},
     criticalrange => $params{criticalrange},
+    verbose => $params{verbose},
     version => 'unknown',
     os => 'unknown',
     servicename => 'unknown',
@@ -83,6 +84,7 @@ sub init {
   my $self = shift;
   my %params = @_;
   $params{handle} = $self->{handle};
+  $self->set_db_thresholds(\%params) if $params{dbthresholds};
   if ($params{mode} =~ /^server::memorypool/) {
     $self->{memorypool} = DBD::MSSQL::Server::Memorypool->new(%params);
   } elsif ($params{mode} =~ /^server::database/) {
@@ -566,6 +568,58 @@ sub calculate_result {
   foreach my $level ("OK", "UNKNOWN", "WARNING", "CRITICAL") {
     if (scalar(@{$self->{nagios}->{messages}->{$ERRORS{$level}}})) {
       $self->{nagios_level} = $ERRORS{$level};
+    }
+  }
+}
+
+sub set_db_thresholds {
+  my $self = shift;
+  my $params = shift;
+  my $warning = undef;
+  my $critical = undef;
+  eval {
+    my $find_sql = undef;
+    if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+      $find_sql = q{
+          SELECT name FROM sys.objects
+          WHERE name = 'check_mssql_health_thresholds'
+      };
+    } else {
+      $find_sql = q{
+          SELECT name FROM sysobjects
+          WHERE name = 'check_mssql_health_thresholds'
+      };
+    }
+    if ($self->{handle}->fetchrow_array($find_sql)) {
+      my $sql = q{
+          SELECT
+              warning, critical
+          FROM
+              check_mssql_health_thresholds
+          WHERE
+              pluginmode = ?};
+      if ($params->{name} && $params->{name2}) {
+        $sql .= q{ AND name = ? AND name2 = ?};
+        ($warning, $critical) = $self->{handle}->fetchrow_array(
+            $sql, $params->{cmdlinemode}, $params->{name}, $params->{name2});
+      } elsif ($params->{name}) {
+        $sql .= q{ AND name = ?};
+        ($warning, $critical) = $self->{handle}->fetchrow_array(
+            $sql, $params->{cmdlinemode}, $params->{name});
+      } else {
+        ($warning, $critical) = $self->{handle}->fetchrow_array(
+            $sql, $params->{cmdlinemode});
+      }
+    }
+  };
+  if (! $@) {
+    if ($warning) {
+      $params->{warningrange} = $warning;
+      $self->trace("read warningthreshold %s from database", $warning);
+    }
+    if ($critical) {
+      $params->{criticalrange} = $critical;
+      $self->trace("read criticalthreshold %s from database", $critical);
     }
   }
 }
