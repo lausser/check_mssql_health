@@ -293,6 +293,15 @@ sub init {
                   ($calc->{datafile}->{$name}->{allocsize} + 
                    $calc->{drive_mb}->{$drive}) : 4 * 1024;
           # falls die platte nicht gefunden wurde, dann nimm halt 4GB
+          if (exists $calc->{drive_mb}->{$drive}) {
+            # davon kann ausgegangen werden. wenn die drives nicht zur
+            # vefuegung stehen, stimmt sowieso hinten und vorne nichts.
+            $calc->{drive_mb}->{$drive} = 0;
+            # damit ist der platz dieses laufwerks verbraten und in
+            # max_mb eingeflossen. es darf nicht sein, dass der freie platz
+            # mehrfach gezaehlt wird, wenn es mehrere datafiles auf diesem
+            # laufwerk gibt.
+          }
         } else {
           $calc->{datafile}->{$name}->{maxsize} = $maxsize / 128;
         }

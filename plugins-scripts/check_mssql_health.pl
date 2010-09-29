@@ -260,7 +260,7 @@ my @params = (
     "perfdata",
     "warning=s",
     "critical=s",
-    "dbthresholds",
+    "dbthresholds:s",
     "absolute|a",
     "basis",
     "lookback|l=i",

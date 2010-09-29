@@ -2,6 +2,10 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.7 2010-09-10
+- fixed a bug in database-free (too much free space was calculated when more than one datafile of a database was on the same filesystem). (Thanks Juergen Essberger)
+- new parameter extra-opts
+
 1.5.6 2010-08-12
 - new parameter --dbthresholds. thresholds can now also be deposited in the table check_mssql_health_thresholds
 - added --currentdb so that the plugin can connect to a non-default database

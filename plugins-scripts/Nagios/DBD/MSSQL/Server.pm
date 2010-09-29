@@ -222,6 +222,7 @@ sub init {
       $self->add_nagios_unknown("unable to count connected users");
     }
   } elsif ($params{mode} =~ /^server::sql/) {
+    $self->set_local_db_thresholds(%params);
     @{$self->{genericsql}} =
         $self->{handle}->fetchrow_array($params{selectname});
     if ((scalar(@{$self->{genericsql}}) == 0) ||
@@ -578,6 +579,10 @@ sub set_global_db_thresholds {
   my $warning = undef;
   my $critical = undef;
   return unless $params->{dbthresholds};
+  $params->{name0} = $params->{dbthresholds};
+  # :pluginmode   :name     :warning    :critical
+  # mode          empty
+  #
   eval {
     my $find_sql = undef;
     if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
@@ -621,24 +626,42 @@ sub set_local_db_thresholds {
   my %params = @_;
   my $warning = undef;
   my $critical = undef;
+  # :pluginmode   :name     :warning    :critical
+  # mode          name0
+  # mode          name2
+  # mode          name
+  #
+  # first: argument of --dbthresholds, it it exists
+  # second: --name2
+  # third: --name
   if (ref($params{dbthresholds}) eq 'ARRAY') {
+    my $marker;
     foreach (@{$params{dbthresholds}}) {
       if ($_->[0] eq $params{cmdlinemode}) {
-        if (defined $_->[1] &&
-            ($params{name} && $_->[1] eq $params{name})) {
+        if (defined $_->[1] && $params{name0} && $_->[1] eq $params{name0}) {
           ($warning, $critical) = ($_->[2], $_->[3]);
+          $marker = $params{name0};
+          last;
+        } elsif (defined $_->[1] && $params{name2} && $_->[1] eq $params{name2}) {
+          ($warning, $critical) = ($_->[2], $_->[3]);
+          $marker = $params{name2};
+          last;
+        } elsif (defined $_->[1] && $params{name} && $_->[1] eq $params{name}) {
+          ($warning, $critical) = ($_->[2], $_->[3]);
+          $marker = $params{name};
+          last;
         }
       }
     }
     if ($warning) {
       $self->{warningrange} = $warning;
       $self->trace("read warningthreshold %s for %s from database",
-         $self->{name}, $warning);
+         $marker, $warning);
     }
     if ($critical) {
       $self->{criticalrange} = $critical;
       $self->trace("read criticalthreshold %s for %s from database",
-          $self->{name}, $critical);
+          $marker, $critical);
     }
   }
 }
