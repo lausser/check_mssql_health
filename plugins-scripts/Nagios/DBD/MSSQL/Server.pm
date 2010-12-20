@@ -45,6 +45,7 @@ sub new {
     warningrange => $params{warningrange},
     criticalrange => $params{criticalrange},
     verbose => $params{verbose},
+    report => $params{report},
     version => 'unknown',
     os => 'unknown',
     servicename => 'unknown',
@@ -223,17 +224,25 @@ sub init {
     }
   } elsif ($params{mode} =~ /^server::sql/) {
     $self->set_local_db_thresholds(%params);
-    @{$self->{genericsql}} =
-        $self->{handle}->fetchrow_array($params{selectname});
-    if ((scalar(@{$self->{genericsql}}) == 0) ||
-        (! (defined $self->{genericsql} &&
-        (scalar(grep { /^\s*\d+\.{0,1}\d*\s*$/ } @{$self->{genericsql}})) ==
-        scalar(@{$self->{genericsql}})))) {
-      $self->add_nagios_unknown(sprintf "got no valid response for %s",
-          $params{selectname});
+    if ($params{name2} && $params{name2} ne $params{name}) {
+      $self->{genericsql} =
+          $self->{handle}->fetchrow_array($params{selectname});
+      if (! defined $self->{genericsql}) {
+        $self->add_nagios_unknown(sprintf "got no valid response for %s",
+            $params{selectname});
+      }
     } else {
-      # name2 in array
-      # units in array
+      @{$self->{genericsql}} =
+          $self->{handle}->fetchrow_array($params{selectname});
+      if (! (defined $self->{genericsql} &&
+          (scalar(grep { /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/ } @{$self->{genericsql}})) ==
+          scalar(@{$self->{genericsql}}))) {
+        $self->add_nagios_unknown(sprintf "got no valid response for %s",
+            $params{selectname});
+      } else {
+        # name2 in array
+        # units in array
+      }
     }
   } elsif ($params{mode} =~ /^my::([^:.]+)/) {
     my $class = $1;
@@ -395,29 +404,51 @@ sub nagios {
           $self->{connectedusers},
           $self->{warningrange}, $self->{criticalrange});
     } elsif ($params{mode} =~ /^server::sql/) {
-      $self->add_nagios(
-          # the first item in the list will trigger the threshold values
-          $self->check_thresholds($self->{genericsql}[0], 1, 5),
-              sprintf "%s: %s%s",
-              $params{name2} ? lc $params{name2} : lc $params{selectname},
+      if ($params{name2} && $params{name2} ne $params{name}) {
+        if ($params{regexp}) {
+          if ($self->{genericsql} =~ /$params{name2}/) {
+            $self->add_nagios_ok(
+                sprintf "output %s matches pattern %s",
+                    $self->{genericsql}, $params{name2});
+          } else {
+            $self->add_nagios_critical(
+                sprintf "output %s does not match pattern %s",
+                    $self->{genericsql}, $params{name2});
+          }
+        } else {
+          if ($self->{genericsql} eq $params{name2}) {
+            $self->add_nagios_ok(
+                sprintf "output %s found", $self->{genericsql});
+          } else {
+            $self->add_nagios_critical(
+                sprintf "output %s not found", $self->{genericsql});
+          }
+        }
+      } else {
+        $self->add_nagios(
+            # the first item in the list will trigger the threshold values
+            $self->check_thresholds($self->{genericsql}[0], 1, 5),
+                sprintf "%s: %s%s",
+                $params{name2} ? lc $params{name2} : lc $params{selectname},
+                # float as float, integers as integers
+                join(" ", map {
+                    (sprintf("%d", $_) eq $_) ? $_ : sprintf("%f", $_)
+                } @{$self->{genericsql}}),
+                $params{units} ? $params{units} : "");
+        my $i = 0;
+        # workaround... getting the column names from the database would be nicer
+        my @names2_arr = split(/\s+/, $params{name2});
+        foreach my $t (@{$self->{genericsql}}) {
+          $self->add_perfdata(sprintf "\'%s\'=%s%s;%s;%s",
+              $names2_arr[$i] ? lc $names2_arr[$i] : lc $params{selectname},
               # float as float, integers as integers
-              join(" ", map {
-                  (sprintf("%d", $_) eq $_) ? $_ : sprintf("%f", $_)
-              } @{$self->{genericsql}}),
-              $params{units} ? $params{units} : "");
-      my $i = 0;
-      # workaround... getting the column names from the database would be nicer
-      my @names2_arr = split(/\s+/, $params{name2});
-      foreach my $t (@{$self->{genericsql}}) {
-        $self->add_perfdata(sprintf "\'%s\'=%s%s;%s;%s",
-            $names2_arr[$i] ? lc $names2_arr[$i] : lc $params{selectname},
-            # float as float, integers as integers
-            (sprintf("%d", $t) eq $t) ? $t : sprintf("%f", $t),
-            $params{units} ? $params{units} : "",
-	    ($i == 0) ? $self->{warningrange} : "",
-            ($i == 0) ? $self->{criticalrange} : ""
-        );
-        $i++;
+              (sprintf("%d", $t) eq $t) ? $t : sprintf("%f", $t),
+              $params{units} ? $params{units} : "",
+            ($i == 0) ? $self->{warningrange} : "",
+              ($i == 0) ? $self->{criticalrange} : ""
+          );
+          $i++;
+        }
       }
     } elsif ($params{mode} =~ /^my::([^:.]+)/) {
       $self->{my}->nagios(%params);
@@ -541,36 +572,50 @@ sub merge_nagios {
   push(@{$self->{nagios}->{perfdata}}, @{$child->{nagios}->{perfdata}});
 }
 
-
 sub calculate_result {
   my $self = shift;
-  if ($ENV{NRPE_MULTILINESUPPORT} && 
+  my $multiline = 0;
+  map {
+    $self->{nagios_level} = $ERRORS{$_} if
+        (scalar(@{$self->{nagios}->{messages}->{$ERRORS{$_}}}));
+  } ("OK", "UNKNOWN", "WARNING", "CRITICAL");
+  if ($ENV{NRPE_MULTILINESUPPORT} &&
       length join(" ", @{$self->{nagios}->{perfdata}}) > 200) {
-    foreach my $level ("CRITICAL", "WARNING", "UNKNOWN", "OK") {
-      # first the bad news
-      if (scalar(@{$self->{nagios}->{messages}->{$ERRORS{$level}}})) {
-        $self->{nagios_message} .=
-            "\n".join("\n", @{$self->{nagios}->{messages}->{$ERRORS{$level}}});
-      }
-    }
-    $self->{nagios_message} =~ s/^\n//g;
-    $self->{perfdata} = join("\n", @{$self->{nagios}->{perfdata}});
-  } else {
-    foreach my $level ("CRITICAL", "WARNING", "UNKNOWN", "OK") {
-      # first the bad news
-      if (scalar(@{$self->{nagios}->{messages}->{$ERRORS{$level}}})) {
-        $self->{nagios_message} .= 
-            join(", ", @{$self->{nagios}->{messages}->{$ERRORS{$level}}}).", ";
-      }
-    }
-    $self->{nagios_message} =~ s/, $//g;
-    $self->{perfdata} = join(" ", @{$self->{nagios}->{perfdata}});
+    $multiline = 1;
   }
-  foreach my $level ("OK", "UNKNOWN", "WARNING", "CRITICAL") {
-    if (scalar(@{$self->{nagios}->{messages}->{$ERRORS{$level}}})) {
-      $self->{nagios_level} = $ERRORS{$level};
-    }
+  my $all_messages = join(($multiline ? "\n" : ", "), map {
+      join(($multiline ? "\n" : ", "), @{$self->{nagios}->{messages}->{$ERRORS{$_}}})
+  } grep {
+      scalar(@{$self->{nagios}->{messages}->{$ERRORS{$_}}})
+  } ("CRITICAL", "WARNING", "UNKNOWN", "OK"));
+  my $bad_messages = join(($multiline ? "\n" : ", "), map {
+      join(($multiline ? "\n" : ", "), @{$self->{nagios}->{messages}->{$ERRORS{$_}}})
+  } grep {
+      scalar(@{$self->{nagios}->{messages}->{$ERRORS{$_}}})
+  } ("CRITICAL", "WARNING", "UNKNOWN"));
+  my $all_messages_short = $bad_messages ? $bad_messages : 'no problems';
+  my $all_messages_html = "<table style=\"border-collapse: collapse;\">".
+      join("", map {
+          my $level = $ERRORS{$_};
+          join("", map {
+              sprintf "<tr valign=\"top\"><td class=\"service%s\">%s</td></tr>",
+              $level, $_;
+          } @{$self->{nagios}->{messages}->{$level}});
+      } grep {
+          scalar(@{$self->{nagios}->{messages}->{$ERRORS{$_}}})
+      } ("CRITICAL", "WARNING", "UNKNOWN", "OK")).
+  "</table>";
+  if (exists $self->{identstring}) {
+    $self->{nagios_message} .= $self->{identstring};
   }
+  if ($self->{report} eq "long") {
+    $self->{nagios_message} .= $all_messages;
+  } elsif ($self->{report} eq "short") {
+    $self->{nagios_message} .= $all_messages_short;
+  } elsif ($self->{report} eq "html") {
+    $self->{nagios_message} .= $all_messages_short."\n".$all_messages_html;
+  }
+  $self->{perfdata} = join(" ", @{$self->{nagios}->{perfdata}});
 }
 
 sub set_global_db_thresholds {

@@ -2,6 +2,11 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.8 2010-12-20
+- mode sql can now have a non-numerical output which is compared to a string/regexp
+- new parameter --dbthresholds
+- new mode report can be used to output only the bad news (short,long,html)
+
 1.5.7 2010-09-10
 - fixed a bug in database-free (too much free space was calculated when more than one datafile of a database was on the same filesystem). (Thanks Juergen Essberger)
 - new parameter extra-opts

@@ -274,6 +274,7 @@ my @params = (
     "units=s",
     "3",
     "with-mymodules-dyn-dir=s",
+    "report=s",
     "extra-opts:s");
 
 if (! GetOptions(\%commandline, @params)) {
@@ -328,6 +329,12 @@ if (exists $commandline{verbose}) {
 
 if (exists $commandline{scream}) {
 #  $DBD::MSSQL::Server::hysterical = exists $commandline{scream};
+}
+
+if (exists $commandline{report}) {
+  # short, long, html
+} else {
+  $commandline{report} = "long";
 }
 
 if (exists $commandline{'with-mymodules-dyn-dir'}) {
@@ -502,6 +509,7 @@ my %params = (
     eyecandy => $commandline{eyecandy},
     statefilesdir => $STATEFILESDIR,
     verbose => $commandline{verbose},
+    report => $commandline{report},
 );
 
 my $server = undef;
