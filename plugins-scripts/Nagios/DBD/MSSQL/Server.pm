@@ -596,11 +596,11 @@ sub calculate_result {
   my $all_messages_short = $bad_messages ? $bad_messages : 'no problems';
   my $all_messages_html = "<table style=\"border-collapse: collapse;\">".
       join("", map {
-          my $level = $ERRORS{$_};
+          my $level = $_;
           join("", map {
               sprintf "<tr valign=\"top\"><td class=\"service%s\">%s</td></tr>",
               $level, $_;
-          } @{$self->{nagios}->{messages}->{$level}});
+          } @{$self->{nagios}->{messages}->{$ERRORS{$_}}});
       } grep {
           scalar(@{$self->{nagios}->{messages}->{$ERRORS{$_}}})
       } ("CRITICAL", "WARNING", "UNKNOWN", "OK")).
