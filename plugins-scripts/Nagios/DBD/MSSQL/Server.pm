@@ -623,7 +623,7 @@ sub set_global_db_thresholds {
   my $params = shift;
   my $warning = undef;
   my $critical = undef;
-  return unless $params->{dbthresholds};
+  return unless defined $params->{dbthresholds};
   $params->{name0} = $params->{dbthresholds};
   # :pluginmode   :name     :warning    :critical
   # mode          empty
