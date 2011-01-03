@@ -224,18 +224,24 @@ sub init {
     }
   } elsif ($params{mode} =~ /^server::sql/) {
     $self->set_local_db_thresholds(%params);
-    if ($params{name2} && $params{name2} ne $params{name}) {
-      $self->{genericsql} =
-          $self->{handle}->fetchrow_array($params{selectname});
-      if (! defined $self->{genericsql}) {
-        $self->add_nagios_unknown(sprintf "got no valid response for %s",
-            $params{selectname});
+    if ($params{regexp}) {
+      # sql output is treated as text
+      if ($params{name2} eq $params{name}) {
+        $self->add_nagios_unknown(sprintf "where's the regexp????");
+      } else {
+        $self->{genericsql} =
+            $self->{handle}->fetchrow_array($params{selectname});
+        if (! defined $self->{genericsql}) {
+          $self->add_nagios_unknown(sprintf "got no valid response for %s",
+              $params{selectname});
+        }
       }
     } else {
+      # sql output must be a number (or array of numbers)
       @{$self->{genericsql}} =
           $self->{handle}->fetchrow_array($params{selectname});
       if (! (defined $self->{genericsql} &&
-          (scalar(grep { /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/ } @{$self->{genericsql}})) ==
+          (scalar(grep { /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/ } @{$self->{genericsql}})) == 
           scalar(@{$self->{genericsql}}))) {
         $self->add_nagios_unknown(sprintf "got no valid response for %s",
             $params{selectname});
@@ -404,8 +410,19 @@ sub nagios {
           $self->{connectedusers},
           $self->{warningrange}, $self->{criticalrange});
     } elsif ($params{mode} =~ /^server::sql/) {
-      if ($params{name2} && $params{name2} ne $params{name}) {
-        if ($params{regexp}) {
+      if ($params{regexp}) {
+        if (substr($params{name2}, 0, 1) eq '!') {
+          $params{name2} =~ s/^!//;
+          if ($self->{genericsql} !~ /$params{name2}/) {
+            $self->add_nagios_ok(
+                sprintf "output %s does not match pattern %s",
+                    $self->{genericsql}, $params{name2}); 
+          } else {
+            $self->add_nagios_critical(
+                sprintf "output %s matches pattern %s",
+                    $self->{genericsql}, $params{name2});
+          }
+        } else {
           if ($self->{genericsql} =~ /$params{name2}/) {
             $self->add_nagios_ok(
                 sprintf "output %s matches pattern %s",
@@ -414,14 +431,6 @@ sub nagios {
             $self->add_nagios_critical(
                 sprintf "output %s does not match pattern %s",
                     $self->{genericsql}, $params{name2});
-          }
-        } else {
-          if ($self->{genericsql} eq $params{name2}) {
-            $self->add_nagios_ok(
-                sprintf "output %s found", $self->{genericsql});
-          } else {
-            $self->add_nagios_critical(
-                sprintf "output %s not found", $self->{genericsql});
           }
         }
       } else {
@@ -446,7 +455,7 @@ sub nagios {
               $params{units} ? $params{units} : "",
             ($i == 0) ? $self->{warningrange} : "",
               ($i == 0) ? $self->{criticalrange} : ""
-          );
+          );  
           $i++;
         }
       }
