@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.8.2 2011-01-19
+- output a nicer error message if a sqlrelay connection fails
+
 1.5.8.1 2011-01-03
 - bugfix in --mode sql (numeric vs. regexp result)
 

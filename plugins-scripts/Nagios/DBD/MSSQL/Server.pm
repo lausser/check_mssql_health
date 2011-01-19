@@ -1890,6 +1890,7 @@ sub init {
     }
   }
   if (! exists $self->{errstr}) {
+    my $stderrvar;
     eval {
       require DBI;
       use POSIX ':signal_h';
@@ -1902,6 +1903,9 @@ sub init {
       my $oldaction = POSIX::SigAction->new();
       sigaction(SIGALRM ,$action ,$oldaction );
       alarm($self->{timeout} - 1); # 1 second before the global unknown timeout
+      *SAVEERR = *STDERR;
+      open OUT ,'>',\$stderrvar;
+      *STDERR = *OUT;
       if ($self->{handle} = DBI->connect(
           #sprintf("DBI:SQLRelay:host=%s;port=%d;socket=%s", 
           sprintf("DBI:SQLRelay:host=%s;port=%d;",
@@ -1912,6 +1916,10 @@ sub init {
       } else {
         $self->{errstr} = DBI::errstr();
       }
+      my $answer = $self->fetchrow_array(
+          q{ SELECT 42 });
+      die $self->{errstr} unless defined $answer and $answer == 42;
+      *STDERR = *SAVEERR;
     };
     if ($@) {
       $self->{errstr} = $@;
