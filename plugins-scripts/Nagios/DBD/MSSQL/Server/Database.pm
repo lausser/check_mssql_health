@@ -29,14 +29,17 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         ($params{mode} =~ /server::database::transactions/) ||
         ($params{mode} =~ /server::database::datafile/)) {
       my @databaseresult = ();
-      if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
-        @databaseresult = $params{handle}->fetchall_array(q{
-          SELECT name, database_id FROM master.sys.databases
-        });
+      if ($params{product} eq "MSSQL") {
+        if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+          @databaseresult = $params{handle}->fetchall_array(q{
+            SELECT name, database_id FROM master.sys.databases
+          });
+        } else {
+          @databaseresult = $params{handle}->fetchall_array(q{
+            SELECT name, dbid FROM master.dbo.sysdatabases
+          });
+        }
       } else {
-        #@databaseresult = map {
-        #  [ $_->[0], $_->[3] ] # only name, dbid
-        #} $params{handle}->fetchall_array(q{exec sp_helpdb});
         @databaseresult = $params{handle}->fetchall_array(q{
           SELECT name, dbid FROM master.dbo.sysdatabases
         });
@@ -178,152 +181,176 @@ sub init {
     #$self->{used} = $self->{size} - $self->{free};
     #$self->{maxsize} = "99999999999999999";
     ###################################################################################
-    my $calc = {};
-    if ($params{method} eq 'sqlcmd' || $params{method} eq 'sqsh') {
-      foreach($self->{handle}->fetchall_array(q{
-        if object_id('tempdb..#FreeSpace') is null
-          create table #FreeSpace(
-            Drive varchar(10),
-            MB_Free bigint
-          )
-        go
-        DELETE FROM tempdb..#FreeSpace
-        INSERT INTO tempdb..#FreeSpace exec master.dbo.xp_fixeddrives
-        go
-        SELECT * FROM tempdb..#FreeSpace
-      })) {
-        $calc->{drive_mb}->{lc $_->[0]} = $_->[1];
-      }
-    } else {
-      $self->{handle}->execute(q{
-        if object_id('tempdb..#FreeSpace') is null 
-          create table #FreeSpace(  
-            Drive varchar(10),  
-            MB_Free bigint  
-          ) 
-      });
-      $self->{handle}->execute(q{
-        DELETE FROM #FreeSpace
-      });
-      $self->{handle}->execute(q{
-        INSERT INTO #FreeSpace exec master.dbo.xp_fixeddrives
-      });
-      foreach($self->{handle}->fetchall_array(q{
-        SELECT * FROM #FreeSpace
-      })) {
-        $calc->{drive_mb}->{lc $_->[0]} = $_->[1];
-      }
-    }
-    #$self->{handle}->execute(q{
-    #  DROP TABLE #FreeSpace
-    #});
-    # Page = 8KB
-    # sysfiles ist sv2000, noch als kompatibilitaetsview vorhanden
-    # dbo.sysfiles kann 2008 durch sys.database_files ersetzt werden?
-    # omeiomeiomei in 2005 ist ein sys.sysindexes compatibility view
-    #   fuer 2000.dbo.sysindexes
-    #   besser ist sys.allocation_units
-    if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
-      my $sql = q{
-          SELECT 
-              SUM(CAST(used AS BIGINT)) / 128
-          FROM 
-              [?].sys.sysindexes
-          WHERE
-              indid IN (0,1,255)
-      };
-      #$sql =~ s/\[\?\]/$self->{name}/g;
-      $sql =~ s/\?/$self->{name}/g;
-      $self->{used_mb} = $self->{handle}->fetchrow_array($sql);
-    } else {
-      my $sql = q{
-          SELECT 
-              SUM(CAST(used AS BIGINT)) / 128
-          FROM 
-              [?].dbo.sysindexes
-          WHERE
-              indid IN (0,1,255)
-      };
-      #$sql =~ s/\[\?\]/$self->{name}/g;
-      $sql =~ s/\?/$self->{name}/g;
-      $self->{used_mb} = $self->{handle}->fetchrow_array($sql);
-    }
-    my @fileresult = ();
-    if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
-      my $sql = q{
-          SELECT
-              RTRIM(a.name), RTRIM(a.filename), CAST(a.size AS BIGINT),
-              CAST(a.maxsize AS BIGINT), a.growth
-          FROM
-              [?].sys.sysfiles a
-          JOIN
-              [?].sys.sysfilegroups b
-          ON
-              a.groupid = b.groupid
-      };
-      #$sql =~ s/\[\?\]/$self->{name}/g;
-      $sql =~ s/\?/$self->{name}/g;
-      @fileresult = $self->{handle}->fetchall_array($sql);
-    } else {
-      my $sql = q{
-          SELECT
-              RTRIM(a.name), RTRIM(a.filename), CAST(a.size AS BIGINT),
-              CAST(a.maxsize AS BIGINT), a.growth
-          FROM
-              [?].dbo.sysfiles a
-          JOIN
-              [?].dbo.sysfilegroups b
-          ON
-              a.groupid = b.groupid
-      };
-      #$sql =~ s/\[\?\]/$self->{name}/g;
-      $sql =~ s/\?/$self->{name}/g;
-      @fileresult = $self->{handle}->fetchall_array($sql);
-    }
-    foreach(@fileresult) {
-      my($name, $filename, $size, $maxsize, $growth) = @{$_};
-      my $drive = lc substr($filename, 0, 1);
-      $calc->{datafile}->{$name}->{allocsize} = $size / 128;
-      if ($growth == 0) {
-        $calc->{datafile}->{$name}->{maxsize} = $size / 128;
-      } else {
-        if ($maxsize == -1) {
-          $calc->{datafile}->{$name}->{maxsize} =
-              exists $calc->{drive_mb}->{$drive} ?
-                  ($calc->{datafile}->{$name}->{allocsize} + 
-                   $calc->{drive_mb}->{$drive}) : 4 * 1024;
-          # falls die platte nicht gefunden wurde, dann nimm halt 4GB
-          if (exists $calc->{drive_mb}->{$drive}) {
-            # davon kann ausgegangen werden. wenn die drives nicht zur
-            # vefuegung stehen, stimmt sowieso hinten und vorne nichts.
-            $calc->{drive_mb}->{$drive} = 0;
-            # damit ist der platz dieses laufwerks verbraten und in
-            # max_mb eingeflossen. es darf nicht sein, dass der freie platz
-            # mehrfach gezaehlt wird, wenn es mehrere datafiles auf diesem
-            # laufwerk gibt.
-          }
-        } else {
-          $calc->{datafile}->{$name}->{maxsize} = $maxsize / 128;
-        }
-      }
-      $self->{allocated_mb} += $calc->{datafile}->{$name}->{allocsize};
-      $self->{max_mb} += $calc->{datafile}->{$name}->{maxsize};
-    }
-    $self->{allocated_mb} = $self->{allocated_mb};
-    if ($self->{used_mb} > $self->{allocated_mb}) {
-      # obige used-berechnung liefert manchmal (wenns knapp hergeht) mehr als
-      # den maximal verfuegbaren platz. vermutlich muessen dann
-      # zwecks ermittlung des tatsaechlichen platzverbrauchs 
-      # irgendwelche dbcc updateusage laufen.
-      # egal, wird schon irgendwie stimmen.
-      $self->{used_mb} = $self->{allocated_mb};
+
+    if (DBD::MSSQL::Server::return_first_server()->{product} eq "ASE") {
+      my($database_name, $database_size, $reserved, $data, $index_size, $unused) =
+           $params{handle}->fetchrow_array(
+          "USE ".$self->{name}."\nEXEC sp_spaceused"
+      );
+      #printf "database_name %s\ndatabase_size %s\nreserved %s\ndata %s\nindex_size %s\nunused %s\n",
+      #    $database_name, $database_size, $reserved, $data, $index_size, $unused;
+      $database_size =~ /([\d\.]+)\s*([GMKB]+)/;
+      $self->{max_mb} = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+      $reserved =~ /([\d\.]+)\s*([GMKB]+)/;
+      $self->{allocated_mb} = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+      $data =~ /([\d\.]+)\s*([GMKB]+)/;
+      my $data_used = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+      $index_size =~ /([\d\.]+)\s*([GMKB]+)/;
+      my $index_used = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+      $self->{used_mb} = $data_used + $index_used;
+      $unused =~ /([\d\.]+)\s*([GMKB]+)/;
+      $self->{free_mb} = $self->{max_mb} - $self->{used_mb};
+      $self->{free_percent} = 100 * $self->{free_mb} / $self->{max_mb};
+      $self->{allocated_percent} = 100 * $self->{allocated_mb} / $self->{max_mb};
       $self->{estimated} = 1;
     } else {
-      $self->{estimated} = 0;
+      my $calc = {};
+      if ($params{method} eq 'sqlcmd' || $params{method} eq 'sqsh') {
+        foreach($self->{handle}->fetchall_array(q{
+          if object_id('tempdb..#FreeSpace') is null
+            create table #FreeSpace(
+              Drive varchar(10),
+              MB_Free bigint
+            )
+          go
+          DELETE FROM tempdb..#FreeSpace
+          INSERT INTO tempdb..#FreeSpace exec master.dbo.xp_fixeddrives
+          go
+          SELECT * FROM tempdb..#FreeSpace
+        })) {
+          $calc->{drive_mb}->{lc $_->[0]} = $_->[1];
+        }
+      } else {
+        $self->{handle}->execute(q{
+          if object_id('tempdb..#FreeSpace') is null 
+            create table #FreeSpace(  
+              Drive varchar(10),  
+              MB_Free bigint  
+            ) 
+        });
+        $self->{handle}->execute(q{
+          DELETE FROM #FreeSpace
+        });
+        $self->{handle}->execute(q{
+          INSERT INTO #FreeSpace exec master.dbo.xp_fixeddrives
+        });
+        foreach($self->{handle}->fetchall_array(q{
+          SELECT * FROM #FreeSpace
+        })) {
+          $calc->{drive_mb}->{lc $_->[0]} = $_->[1];
+        }
+      }
+      #$self->{handle}->execute(q{
+      #  DROP TABLE #FreeSpace
+      #});
+      # Page = 8KB
+      # sysfiles ist sv2000, noch als kompatibilitaetsview vorhanden
+      # dbo.sysfiles kann 2008 durch sys.database_files ersetzt werden?
+      # omeiomeiomei in 2005 ist ein sys.sysindexes compatibility view
+      #   fuer 2000.dbo.sysindexes
+      #   besser ist sys.allocation_units
+      if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+        my $sql = q{
+            SELECT 
+                SUM(CAST(used AS BIGINT)) / 128
+            FROM 
+                [?].sys.sysindexes
+            WHERE
+                indid IN (0,1,255)
+        };
+        #$sql =~ s/\[\?\]/$self->{name}/g;
+        $sql =~ s/\?/$self->{name}/g;
+        $self->{used_mb} = $self->{handle}->fetchrow_array($sql);
+      } else {
+        my $sql = q{
+            SELECT 
+                SUM(CAST(used AS BIGINT)) / 128
+            FROM 
+                [?].dbo.sysindexes
+            WHERE
+                indid IN (0,1,255)
+        };
+        #$sql =~ s/\[\?\]/$self->{name}/g;
+        $sql =~ s/\?/$self->{name}/g;
+        $self->{used_mb} = $self->{handle}->fetchrow_array($sql);
+      }
+      my @fileresult = ();
+      if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+        my $sql = q{
+            SELECT
+                RTRIM(a.name), RTRIM(a.filename), CAST(a.size AS BIGINT),
+                CAST(a.maxsize AS BIGINT), a.growth
+            FROM
+                [?].sys.sysfiles a
+            JOIN
+                [?].sys.sysfilegroups b
+            ON
+                a.groupid = b.groupid
+        };
+        #$sql =~ s/\[\?\]/$self->{name}/g;
+        $sql =~ s/\?/$self->{name}/g;
+        @fileresult = $self->{handle}->fetchall_array($sql);
+      } else {
+        my $sql = q{
+            SELECT
+                RTRIM(a.name), RTRIM(a.filename), CAST(a.size AS BIGINT),
+                CAST(a.maxsize AS BIGINT), a.growth
+            FROM
+                [?].dbo.sysfiles a
+            JOIN
+                [?].dbo.sysfilegroups b
+            ON
+                a.groupid = b.groupid
+        };
+        #$sql =~ s/\[\?\]/$self->{name}/g;
+        $sql =~ s/\?/$self->{name}/g;
+        @fileresult = $self->{handle}->fetchall_array($sql);
+      }
+      foreach(@fileresult) {
+        my($name, $filename, $size, $maxsize, $growth) = @{$_};
+        my $drive = lc substr($filename, 0, 1);
+        $calc->{datafile}->{$name}->{allocsize} = $size / 128;
+        if ($growth == 0) {
+          $calc->{datafile}->{$name}->{maxsize} = $size / 128;
+        } else {
+          if ($maxsize == -1) {
+            $calc->{datafile}->{$name}->{maxsize} =
+                exists $calc->{drive_mb}->{$drive} ?
+                    ($calc->{datafile}->{$name}->{allocsize} + 
+                     $calc->{drive_mb}->{$drive}) : 4 * 1024;
+            # falls die platte nicht gefunden wurde, dann nimm halt 4GB
+            if (exists $calc->{drive_mb}->{$drive}) {
+              # davon kann ausgegangen werden. wenn die drives nicht zur
+              # vefuegung stehen, stimmt sowieso hinten und vorne nichts.
+              $calc->{drive_mb}->{$drive} = 0;
+              # damit ist der platz dieses laufwerks verbraten und in
+              # max_mb eingeflossen. es darf nicht sein, dass der freie platz
+              # mehrfach gezaehlt wird, wenn es mehrere datafiles auf diesem
+              # laufwerk gibt.
+            }
+          } else {
+            $calc->{datafile}->{$name}->{maxsize} = $maxsize / 128;
+          }
+        }
+        $self->{allocated_mb} += $calc->{datafile}->{$name}->{allocsize};
+        $self->{max_mb} += $calc->{datafile}->{$name}->{maxsize};
+      }
+      $self->{allocated_mb} = $self->{allocated_mb};
+      if ($self->{used_mb} > $self->{allocated_mb}) {
+        # obige used-berechnung liefert manchmal (wenns knapp hergeht) mehr als
+        # den maximal verfuegbaren platz. vermutlich muessen dann
+        # zwecks ermittlung des tatsaechlichen platzverbrauchs 
+        # irgendwelche dbcc updateusage laufen.
+        # egal, wird schon irgendwie stimmen.
+        $self->{used_mb} = $self->{allocated_mb};
+        $self->{estimated} = 1;
+      } else {
+        $self->{estimated} = 0;
+      }
+      $self->{free_mb} = $self->{max_mb} - $self->{used_mb};
+      $self->{free_percent} = 100 * $self->{free_mb} / $self->{max_mb};
+      $self->{allocated_percent} = 100 * $self->{allocated_mb} / $self->{max_mb};
     }
-    $self->{free_mb} = $self->{max_mb} - $self->{used_mb};
-    $self->{free_percent} = 100 * $self->{free_mb} / $self->{max_mb};
-    $self->{allocated_percent} = 100 * $self->{allocated_mb} / $self->{max_mb};
   } elsif ($params{mode} =~ /^server::database::transactions/) {
     $self->{transactions_s} = $self->{handle}->get_perf_counter_instance(
         'SQLServer:Databases', 'Transactions/sec', $self->{name});

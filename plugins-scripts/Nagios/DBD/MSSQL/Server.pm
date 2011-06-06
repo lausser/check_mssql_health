@@ -59,21 +59,41 @@ sub new {
   if ($self->dbconnect(%params)) {
     #$self->{version} = $self->{handle}->fetchrow_array(
     #    q{ SELECT SERVERPROPERTY('productversion') });
+    # @@VERSION:
+    # Variant1:
+    # Adaptive Server Enterprise/15.5/EBF 18164 SMP ESD#2/P/x86_64/Enterprise Linux/asear155/2514/64-bit/FBO/Wed Aug 25 11:17:26 2010
+    # Variant2: 
+    # Microsoft SQL Server 2005 - 9.00.1399.06 (Intel X86)
+    #    Oct 14 2005 00:33:37
+    #    Copyright (c) 1988-2005 Microsoft Corporation
+    #    Enterprise Edition on Windows NT 5.2 (Build 3790: Service Pack 2)
+
     map {
-        $self->{os} = $1 if /Windows (.*)/; 
+        $self->{os} = "Linux" if /Linux/;
+        $self->{version} = $1 if /Adaptive Server Enterprise\/([\d\.]+)/;
+        $self->{os} = $1 if /Windows (.*)/;
         $self->{version} = $1 if /SQL Server.*\-\s*([\d\.]+)/;
+        $self->{product} = "ASE" if /Adaptive Server/;
+        $self->{product} = "MSSQL" if /SQL Server/;
     } $self->{handle}->fetchrow_array(
         q{ SELECT @@VERSION });
-    $self->{dbuser} = $self->{handle}->fetchrow_array(
-        q{ SELECT SYSTEM_USER });  # maybe SELECT SUSER_SNAME()
-    $self->{servicename} = $self->{handle}->fetchrow_array(
-        q{ SELECT @@SERVICENAME });  
-    if (lc $self->{servicename} ne 'mssqlserver') {
-      # braucht man fuer abfragen von dm_os_performance_counters
-      # object_name ist entweder "SQLServer:Buffer Node" oder z.b. "MSSQL$OASH: Buffer Node"
-      $self->{servicename} = 'MSSQL$'.$self->{servicename};
+    # params wird tiefer weitergereicht, z.b. zu databasefree
+    $params{product} = $self->{product};
+    if ($self->{product} eq "MSSQL") {
+        $self->{dbuser} = $self->{handle}->fetchrow_array(
+            q{ SELECT SYSTEM_USER });  # maybe SELECT SUSER_SNAME()
+      $self->{servicename} = $self->{handle}->fetchrow_array(
+          q{ SELECT @@SERVICENAME });
+      if (lc $self->{servicename} ne 'mssqlserver') {
+        # braucht man fuer abfragen von dm_os_performance_counters
+        # object_name ist entweder "SQLServer:Buffer Node" oder z.b. "MSSQL$OASH:Buffer Node"
+        $self->{servicename} = 'MSSQL$'.$self->{servicename};
+      } else {
+        $self->{servicename} = 'SQLServer';
+      }
     } else {
-      $self->{servicename} = 'SQLServer';
+        $self->{dbuser} = $self->{handle}->fetchrow_array(
+            q{ SELECT SUSER_NAME() });
     }
     DBD::MSSQL::Server::add_server($self);
     $self->init(%params);
@@ -211,14 +231,18 @@ sub init {
       $self->add_nagios_unknown("unable to aquire counter data");
     }
   } elsif ($params{mode} =~ /^server::connectedusers/) {
-    $self->{connectedusers} = $self->{handle}->fetchrow_array(q{
-      SELECT
-          COUNT(*)
-      FROM
-          master..sysprocesses
-      WHERE
-          spid > ?
-    }, 51);
+    if ($self->{product} eq "ASE") {
+      $self->{connectedusers} = $self->{handle}->fetchrow_array(q{
+        SELECT COUNT(*) FROM master..sysprocesses WHERE hostprocess IS NOT NULL AND program_name != 'JS Agent'
+      });
+    } else {
+      # http://www.sqlservercentral.com/articles/System+Tables/66335/
+      # user processes start at 51
+  DBI->trace(3);
+      $self->{connectedusers} = $self->{handle}->fetchrow_array(q{
+        SELECT COUNT(*) FROM master..sysprocesses WHERE spid >= 51
+      });
+    }
     if (! defined $self->{connectedusers}) {
       $self->add_nagios_unknown("unable to count connected users");
     }
@@ -1228,7 +1252,7 @@ sub fetchrow_array {
     } else {
       $sth->execute() || die DBI::errstr();
     }
-    if (lc $sql =~ /^(exec |sp_)/) {
+    if (lc $sql =~ /^(exec |sp_)/ || $sql =~ /^exec sp/im) {
       # flatten the result sets
       do {
         while (my $aref = $sth->fetchrow_arrayref()) {

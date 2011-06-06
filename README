@@ -171,6 +171,15 @@ if (my $dbh = DBI->connect(
   printf "connection failed\n";
 }
 
+In Sybase, login as sa and switch on auditing:
+sp_configure "log audit logon success", 1
+sp_configure "log audit logon failure", 1
+go
+shutdown
+go
+
+Then startup again
+startserver -f /opt/sybase/ASE-15_0/install/RUN_backup_server  -f /opt/sybase/ASE-15_0/install/RUN_ase_server -f /opt/sybase/ASE-15_0/install/RUN_monitor_server
 
 
 
