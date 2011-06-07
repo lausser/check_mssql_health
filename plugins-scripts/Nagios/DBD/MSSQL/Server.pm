@@ -238,7 +238,6 @@ sub init {
     } else {
       # http://www.sqlservercentral.com/articles/System+Tables/66335/
       # user processes start at 51
-  DBI->trace(3);
       $self->{connectedusers} = $self->{handle}->fetchrow_array(q{
         SELECT COUNT(*) FROM master..sysprocesses WHERE spid >= 51
       });

@@ -4,6 +4,8 @@
 
 1.5.8.3 2011-06-03
 - sites in an OMD (http://omdistro.org) environment have now private statefile directories
+- fix a bug in extra-opts
+- conection-time, connected-users, database-free and backup-age can be used with sybase ase 15.x servers
 
 1.5.8.2 2011-01-19
 - output a nicer error message if a sqlrelay connection fails

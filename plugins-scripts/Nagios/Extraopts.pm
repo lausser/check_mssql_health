@@ -68,7 +68,7 @@ sub init {
     foreach my $line (split(/\n/, $data)) {
       if ($line =~ /\[(.*)\]/) {
         $in_section = $1;
-      } elsif ($line =~ /(.*)=(.*)/) {
+      } elsif ($line =~ /(.*?)\s*=\s*(.*)/) {
         $self->{config}->{$in_section}->{$1} = $2;
       }
     }
