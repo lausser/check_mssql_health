@@ -39,7 +39,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
             SELECT name, dbid FROM master.dbo.sysdatabases
           });
         }
-      } else {
+      } elsif ($params{product} eq "ASE") {
         @databaseresult = $params{handle}->fetchall_array(q{
           SELECT name, dbid FROM master.dbo.sysdatabases
         });
@@ -69,58 +69,105 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
       }
     } elsif ($params{mode} =~ /server::database::backupage/) {
       my @databaseresult = ();
-      if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+      if ($params{product} eq "MSSQL") {
+        if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+          @databaseresult = $params{handle}->fetchall_array(q{
+            SELECT
+              a.name, 
+              DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
+              DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
+            FROM sys.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
+            ON b.database_name = a.name
+            GROUP BY a.name 
+            ORDER BY a.name
+          });
+        } else {
+          @databaseresult = $params{handle}->fetchall_array(q{
+            SELECT
+              a.name, 
+              DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
+              DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
+            FROM master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
+            ON b.database_name = a.name
+            GROUP BY a.name 
+            ORDER BY a.name 
+          }); 
+        }
+        foreach (sort {
+          if (! defined $b->[1]) {
+            return 1;
+          } elsif (! defined $a->[1]) {
+            return -1;
+          } else {
+            return $a->[1] <=> $b->[1];
+          }
+        } @databaseresult) { 
+          my ($name, $age, $duration) = @{$_};
+          next if $params{database} && $name ne $params{database};
+          if ($params{regexp}) { 
+            next if $params{selectname} && $name !~ /$params{selectname}/;
+          } else {
+            next if $params{selectname} && lc $params{selectname} ne lc $name;
+          }
+          my %thisparams = %params;
+          $thisparams{name} = $name;
+          $thisparams{backup_age} = $age;
+          $thisparams{backup_duration} = $duration;
+          my $database = DBD::MSSQL::Server::Database->new(
+              %thisparams);
+          add_database($database);
+          $num_databases++;
+        }
+      } elsif ($params{product} eq "ASE") {
+        # sollte eigentlich als database::init implementiert werden, dann wiederum
+        # gaebe es allerdings mssql=klassenmethode, ase=objektmethode. also hier.
         @databaseresult = $params{handle}->fetchall_array(q{
-          SELECT
-            a.name, 
-            DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
-            DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
-          FROM sys.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
-          ON b.database_name = a.name
-          GROUP BY a.name 
-          ORDER BY a.name
+          SELECT name, dbid FROM master.dbo.sysdatabases
         });
-      } else {
-        @databaseresult = $params{handle}->fetchall_array(q{
-          SELECT
-            a.name, 
-            DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
-            DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
-          FROM master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
-          ON b.database_name = a.name
-          GROUP BY a.name 
-          ORDER BY a.name 
-        }); 
-      }
-      foreach (sort {
-        if (! defined $b->[1]) {
-          return 1;
-        } elsif (! defined $a->[1]) {
-          return -1;
-        } else {
-          return $a->[1] <=> $b->[1];
+        foreach (@databaseresult) {
+          my ($name, $id) = @{$_};
+          next if $params{database} && $name ne $params{database};
+          if ($params{regexp}) {
+            next if $params{selectname} && $name !~ /$params{selectname}/;
+          } else {
+            next if $params{selectname} && lc $params{selectname} ne lc $name;
+          }
+          my %thisparams = %params;
+          $thisparams{name} = $name;
+          $thisparams{id} = $id;
+          $thisparams{backup_age} = undef;
+          $thisparams{backup_duration} = undef;
+          my $sql = q{
+            dbcc traceon(3604)
+            dbcc dbtable("?")
+          };
+          $sql =~ s/\?/$name/g;
+          my @dbccresult = $params{handle}->fetchall_array($sql);
+          foreach (@dbccresult) {
+            #dbt_backup_start: 0x1686303d8 (dtdays=40599, dttime=7316475)    Feb 27 2011  6:46:28:250AM
+            if (/dbt_backup_start: \w+\s+\(dtdays=0, dttime=0\) \(uninitialized\)/) {
+              # never backupped
+              last;
+            } elsif (/dbt_backup_start: \w+\s+\(dtdays=\d+, dttime=\d+\)\s+(\w+)\s+(\d+)\s+(\d+)\s+(\d+):(\d+):(\d+):\d+([AP])/) {
+              require Time::Local;
+              my %months = ("Jan" => 0, "Feb" => 1, "Mar" => 2, "Apr" => 3, "May" => 4, "Jun" => 5, "Jul" => 6, "Aug" => 7, "Sep" => 8, "Oct" => 9, "Nov" => 10, "Dec" => 11);
+              $thisparams{backup_age} = (time - Time::Local::timelocal($6, $5, $4 + ($7 eq "A" ? 0 : 12), $2, $months{$1}, $3 - 1900)) / 3600;
+              $thisparams{backup_duration} = 0;
+              last;
+            }
+          }
+          my $database = DBD::MSSQL::Server::Database->new(
+              %thisparams);
+          add_database($database);
+          $num_databases++;
         }
-      } @databaseresult) { 
-        my ($name, $age, $duration) = @{$_};
-        next if $params{database} && $name ne $params{database};
-        if ($params{regexp}) { 
-          next if $params{selectname} && $name !~ /$params{selectname}/;
-        } else {
-          next if $params{selectname} && lc $params{selectname} ne lc $name;
+        if (! $num_databases) {
+          $initerrors = 1;
+          return undef;
         }
-        my %thisparams = %params;
-        $thisparams{name} = $name;
-        $thisparams{backup_age} = $age;
-        $thisparams{backup_duration} = $duration;
-        my $database = DBD::MSSQL::Server::Database->new(
-            %thisparams);
-        add_database($database);
-        $num_databases++;
       }
     }
-
   }
-
 }
 
 sub new {
@@ -203,6 +250,7 @@ sub init {
       $self->{free_percent} = 100 * $self->{free_mb} / $self->{max_mb};
       $self->{allocated_percent} = 100 * $self->{allocated_mb} / $self->{max_mb};
       $self->{estimated} = 1;
+      # see also....sp_helpdb [db] and sp_helpdevice. ex. model belongs to device master
     } else {
       my $calc = {};
       if ($params{method} eq 'sqlcmd' || $params{method} eq 'sqsh') {

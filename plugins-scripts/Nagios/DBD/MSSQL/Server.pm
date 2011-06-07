@@ -1252,7 +1252,7 @@ sub fetchrow_array {
     } else {
       $sth->execute() || die DBI::errstr();
     }
-    if (lc $sql =~ /^(exec |sp_)/ || $sql =~ /^exec sp/im) {
+    if (lc $sql =~ /^\s*(exec |sp_)/ || $sql =~ /^\s*exec sp/im) {
       # flatten the result sets
       do {
         while (my $aref = $sth->fetchrow_arrayref()) {
@@ -1286,13 +1286,25 @@ sub fetchall_array {
   eval {
     $self->trace(sprintf "SQL:\n%s\nARGS:\n%s\n",
         $sql, Data::Dumper::Dumper(\@arguments));
+    if ($sql =~ /^\s*dbcc /im) {
+      # dbcc schreibt auf stdout. Die Ausgabe muss daher
+      # mit einem eigenen Handler aufgefangen werden.
+      $self->{handle}->{syb_err_handler} = sub {
+        my($err, $sev, $state, $line, $server,
+            $proc, $msg, $sql, $err_type) = @_;
+        push(@{$rows}, $msg);
+        return 0;
+      };
+    }
     $sth = $self->{handle}->prepare($sql);
     if (scalar(@arguments)) {
       $sth->execute(@arguments);
     } else {
       $sth->execute();
     }
-    $rows = $sth->fetchall_arrayref();
+    if ($sql !~ /^\s*dbcc /im) {
+      $rows = $sth->fetchall_arrayref();
+    }
     $self->trace(sprintf "RESULT:\n%s\n",
         Data::Dumper::Dumper($rows));
   }; 
