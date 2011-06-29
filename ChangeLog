@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.8.4 2011-06-29
+- fix a bug in sybase chained transaction handling
+
 1.5.8.3 2011-06-03
 - sites in an OMD (http://omdistro.org) environment have now private statefile directories
 - fix a bug in extra-opts
