@@ -1159,6 +1159,7 @@ package DBD::MSSQL::Server::Connection::Dbi;
 
 use strict;
 use Net::Ping;
+use File::Basename;
 
 our @ISA = qw(DBD::MSSQL::Server::Connection);
 
@@ -1184,6 +1185,7 @@ sub init {
       $self->{errstr} = "Please specify hostname or server, username and password";
       return undef;
     }
+    $self->{dbi_options} = { RaiseError => 1, AutoCommit => 0, PrintError => 1 };
     $self->{dsn} = "DBI:Sybase:";
     if ($self->{hostname}) {
       $self->{dsn} .= sprintf ";host=%s", $self->{hostname};
@@ -1193,6 +1195,10 @@ sub init {
     }
     if ($params{currentdb}) {
       $self->{dsn} .= sprintf ";database=%s", $params{currentdb};
+    }
+    if (basename($0) =~ /_sybase_/) {
+      $self->{dbi_options}->{syb_chained_txn} = 1;
+      $self->{dsn} .= sprintf ";tdsLevel=CS_TDS_42";
     }
   }
   if (! exists $self->{errstr}) {
@@ -1216,7 +1222,7 @@ sub init {
           $self->{dsn},
           $self->{username},
           $self->{password},
-          { RaiseError => 1, AutoCommit => 0, PrintError => 1 })) {
+          $self->{dbi_options})) {
         $retval = $self;
       } else {
         # doesnt seem to work $self->{errstr} = DBI::errstr();
@@ -1242,7 +1248,18 @@ sub fetchrow_array {
   my @arguments = @_;
   my $sth = undef;
   my @row = ();
+  my @errrow = ();
   eval {
+    if ($self->{dsn} =~ /tdsLevel/) {
+      # better install a handler here. otherwise the plugin output is
+      # unreadable when errors occur
+      $self->{handle}->{syb_err_handler} = sub {
+        my($err, $sev, $state, $line, $server,
+            $proc, $msg, $sql, $err_type) = @_;
+        push(@errrow, $msg);
+        return 0;
+      };
+    }
     $self->trace(sprintf "SQL:\n%s\nARGS:\n%s\n",
         $sql, Data::Dumper::Dumper(\@arguments));
     $sth = $self->{handle}->prepare($sql);
@@ -1265,12 +1282,16 @@ sub fetchrow_array {
         Data::Dumper::Dumper(\@row));
   }; 
   if ($@) {
+    printf STDERR "database error %s\n", $@;
     $self->debug(sprintf "bumm %s", $@);
   }
   if (-f "/tmp/check_mssql_health_simulation/".$self->{mode}) {
     my $simulation = do { local (@ARGV, $/) = 
         "/tmp/check_mssql_health_simulation/".$self->{mode}; <> };
     @row = split(/\s+/, (split(/\n/, $simulation))[0]);
+  }
+  if (@errrow) {
+    $self->{errrow} = \@errrow;
   }
   return $row[0] unless wantarray;
   return @row;

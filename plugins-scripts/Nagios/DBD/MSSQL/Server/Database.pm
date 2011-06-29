@@ -236,21 +236,31 @@ sub init {
       );
       #printf "database_name %s\ndatabase_size %s\nreserved %s\ndata %s\nindex_size %s\nunused %s\n",
       #    $database_name, $database_size, $reserved, $data, $index_size, $unused;
-      $database_size =~ /([\d\.]+)\s*([GMKB]+)/;
-      $self->{max_mb} = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
-      $reserved =~ /([\d\.]+)\s*([GMKB]+)/;
-      $self->{allocated_mb} = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
-      $data =~ /([\d\.]+)\s*([GMKB]+)/;
-      my $data_used = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
-      $index_size =~ /([\d\.]+)\s*([GMKB]+)/;
-      my $index_used = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
-      $self->{used_mb} = $data_used + $index_used;
-      $unused =~ /([\d\.]+)\s*([GMKB]+)/;
-      $self->{free_mb} = $self->{max_mb} - $self->{used_mb};
-      $self->{free_percent} = 100 * $self->{free_mb} / $self->{max_mb};
-      $self->{allocated_percent} = 100 * $self->{allocated_mb} / $self->{max_mb};
-      $self->{estimated} = 1;
-      # see also....sp_helpdb [db] and sp_helpdevice. ex. model belongs to device master
+      if (! $database_name) {
+        if (exists $params{handle}->{errrow}) {
+          foreach (@{$params{handle}->{errrow}}) {
+            $self->add_nagios_unknown($_);
+          }
+        } else {
+          $self->add_nagios_unknown("unknown error in sp_spaceused");
+        }
+      } else {
+        $database_size =~ /([\d\.]+)\s*([GMKB]+)/;
+        $self->{max_mb} = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+        $reserved =~ /([\d\.]+)\s*([GMKB]+)/;
+        $self->{allocated_mb} = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+        $data =~ /([\d\.]+)\s*([GMKB]+)/;
+        my $data_used = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+        $index_size =~ /([\d\.]+)\s*([GMKB]+)/;
+        my $index_used = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+        $self->{used_mb} = $data_used + $index_used;
+        $unused =~ /([\d\.]+)\s*([GMKB]+)/;
+        $self->{free_mb} = $self->{max_mb} - $self->{used_mb};
+        $self->{free_percent} = 100 * $self->{free_mb} / $self->{max_mb};
+        $self->{allocated_percent} = 100 * $self->{allocated_mb} / $self->{max_mb};
+        $self->{estimated} = 1;
+        # see also....sp_helpdb [db] and sp_helpdevice. ex. model belongs to device master
+      }
     } else {
       my $calc = {};
       if ($params{method} eq 'sqlcmd' || $params{method} eq 'sqsh') {
