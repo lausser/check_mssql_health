@@ -824,13 +824,13 @@ sub save_state {
   my $self = shift;
   my %params = @_;
   my $extension = "";
-  if ($params{connect} =~ /(\w+)\/(\w+)@(\w+)/) {
+  my $mode = $params{mode};
+  if ($params{connect} && $params{connect} =~ /(\w+)\/(\w+)@(\w+)/) {
     $params{connect} = $3;
-  } else {
+  } elsif ($params{connect}) {
     # just to be sure
     $params{connect} =~ s/\//_/g;
   }
-  my $mode = $params{mode};
   if ($^O =~ /MSWin/) {
     $mode =~ s/::/_/g;
     $params{statefilesdir} = $self->system_vartmpdir();
@@ -878,12 +878,13 @@ sub load_state {
   my $self = shift;
   my %params = @_;
   my $extension = "";
-  if ($params{connect} =~ /(\w+)\/(\w+)@(\w+)/) {
+  my $mode = $params{mode};
+  if ($params{connect} && $params{connect} =~ /(\w+)\/(\w+)@(\w+)/) {
     $params{connect} = $3;
-  } else {
+  } elsif ($params{connect}) {
+    # just to be sure
     $params{connect} =~ s/\//_/g;
   }
-  my $mode = $params{mode};
   if ($^O =~ /MSWin/) {
     $mode =~ s/::/_/g;
     $params{statefilesdir} = $self->system_vartmpdir();
