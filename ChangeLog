@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.9 2011-08-12
+- fix a bug in save_state for statefilesdirs with capial letters
+
 1.5.8.4 2011-06-29
 - fix a bug in sybase chained transaction handling
 
