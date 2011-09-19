@@ -1211,7 +1211,7 @@ sub init {
       $self->{dsn} .= sprintf ";server=%s", $self->{server};
     }
     if ($params{currentdb}) {
-      $self->{dsn} .= sprintf ";database=%s", $params{currentdb};
+      $self->{dsn} .= sprintf ";database=\"%s\"", $params{currentdb};
     }
     if (basename($0) =~ /_sybase_/) {
       $self->{dbi_options}->{syb_chained_txn} = 1;
