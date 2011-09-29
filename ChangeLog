@@ -4,6 +4,7 @@
 
 1.5.9.1 2011-09-19
 - fix a bug in --currentdb (with a "-" in the database name"). (Thanks Markus Stollwerk)
+- single ticks around the --name argument under Windows CMD will be removed auto matically
 
 1.5.9 2011-08-12
 - fix a bug in save_state for statefilesdirs with capial letters

@@ -432,6 +432,11 @@ if (! exists $commandline{statefilesdir}) {
 }
 
 if (exists $commandline{name}) {
+  if ($^O =~ /MSWin/ && $commandline{name} =~ /^'(.*)'$/) {
+    # putting arguments in single ticks under Windows CMD leaves the ' intact
+    # we remove them
+    $commandline{name} = $1;
+  }
   # objects can be encoded like an url
   # with s/([^A-Za-z0-9])/sprintf("%%%02X", ord($1))/seg;
   if (($commandline{mode} ne "sql") || 
