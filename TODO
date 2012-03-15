@@ -1,1 +1,3 @@
 --database is important
+
+examine sys.dm_os_volume_stats 
