@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.9.3 2012-04-12
+- fix warnings for newer Perl versions (Thanks Stephan Classen)
+
 1.5.9.2 2012-03-15
 - bugfix in timeout-alarm handling under windows
 
