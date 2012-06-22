@@ -67,20 +67,39 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         $initerrors = 1;
         return undef;
       }
-    } elsif ($params{mode} =~ /server::database::backupage/) {
+    } elsif ($params{mode} =~ /server::database::.*backupage/) {
       my @databaseresult = ();
       if ($params{product} eq "MSSQL") {
         if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
-          @databaseresult = $params{handle}->fetchall_array(q{
-            SELECT
-              a.name, 
-              DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
-              DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
-            FROM sys.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
-            ON b.database_name = a.name
-            GROUP BY a.name 
-            ORDER BY a.name
-          });
+          if ($params{mode} =~ /server::database::backupage/) {
+            @databaseresult = $params{handle}->fetchall_array(q{
+              SELECT D.name AS [database_name], BS1.last_backup, BS1.last_duration
+              FROM sys.databases D
+              LEFT JOIN (
+                SELECT BS.[database_name],
+                DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup
+                DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
+                FROM msdb.dbo.backupset BS
+                WHERE BS.type = 'D'
+                GROUP BY BS.[database_name]
+              ) BS1 ON D.name = BS1.[database_name]
+              ORDER BY D.[name];
+            });
+          } elsif ($params{mode} =~ /server::database::logbackupage/) {
+            @databaseresult = $params{handle}->fetchall_array(q{
+              SELECT D.name AS [database_name], BS1.last_backup, BS1.last_duration
+              FROM sys.databases D
+              LEFT JOIN (
+                SELECT BS.[database_name],
+                DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup
+                DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
+                FROM msdb.dbo.backupset BS
+                WHERE BS.type = 'D'
+                GROUP BY BS.[database_name]
+              ) BS1 ON D.name = BS1.[database_name]
+              ORDER BY D.[name];
+            });
+          }
         } else {
           @databaseresult = $params{handle}->fetchall_array(q{
             SELECT
@@ -531,17 +550,21 @@ sub nagios {
             lc $self->{name},
             $self->{allocated_percent});
       }
-    } elsif ($params{mode} =~ /server::database::backupage/) {
+    } elsif ($params{mode} =~ /server::database::.*backupage/) {
+      my $log = "";
+      if ($params{mode} =~ /server::database::logbackupage/) {
+        $log = "log of ";
+      }
       if (! defined $self->{backup_age}) { 
-        $self->add_nagios_critical(sprintf "%s was never backupped",
-            $self->{name}); 
+        $self->add_nagios_critical(sprintf "%s%s was never backupped",
+            $log, $self->{name}); 
         $self->{backup_age} = 0;
         $self->{backup_duration} = 0;
         $self->check_thresholds($self->{backup_age}, 48, 72); # init wg perfdata
       } else { 
         $self->add_nagios( 
             $self->check_thresholds($self->{backup_age}, 48, 72), 
-            sprintf "%s backupped %dh ago", $self->{name}, $self->{backup_age});
+            sprintf "%s%s was backupped %dh ago", $log, $self->{name}, $self->{backup_age});
       } 
       $self->add_perfdata(sprintf "'%s_bck_age'=%d;%s;%s", 
           $self->{name}, $self->{backup_age}, 
