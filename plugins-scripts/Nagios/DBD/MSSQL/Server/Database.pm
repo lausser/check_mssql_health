@@ -77,7 +77,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
               FROM sys.databases D
               LEFT JOIN (
                 SELECT BS.[database_name],
-                DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup
+                DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup,
                 DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
                 FROM msdb.dbo.backupset BS
                 WHERE BS.type = 'D'
@@ -91,7 +91,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
               FROM sys.databases D
               LEFT JOIN (
                 SELECT BS.[database_name],
-                DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup
+                DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup,
                 DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
                 FROM msdb.dbo.backupset BS
                 WHERE BS.type = 'D'
