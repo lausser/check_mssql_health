@@ -120,9 +120,17 @@ sub init {
     $self->{connection_time} = $self->{tac} - $self->{tic};
   } elsif ($params{mode} =~ /^server::cpubusy/) {
     if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+      #($self->{secs_busy}) = $self->{handle}->fetchrow_array(q{
+      #    SELECT ((@@CPU_BUSY * CAST(@@TIMETICKS AS FLOAT)) /
+      #        (SELECT (CAST(CPU_COUNT AS FLOAT) / CAST(HYPERTHREAD_RATIO AS FLOAT)) FROM sys.dm_os_sys_info) /
+      #        1000000)
+      #});
+      # new: people were complaining about percentages > 100%
+      # http://sqlblog.com/blogs/kalen_delaney/archive/2007/12/08/hyperthreaded-or-not.aspx
+      # count only cpus, virtual or not, cores or threads
       ($self->{secs_busy}) = $self->{handle}->fetchrow_array(q{
           SELECT ((@@CPU_BUSY * CAST(@@TIMETICKS AS FLOAT)) /
-              (SELECT (CAST(CPU_COUNT AS FLOAT) / CAST(HYPERTHREAD_RATIO AS FLOAT)) FROM sys.dm_os_sys_info) /
+              (SELECT (CAST(CPU_COUNT AS FLOAT)) FROM sys.dm_os_sys_info) /
               1000000)
       });
       $self->valdiff(\%params, qw(secs_busy));
@@ -146,9 +154,14 @@ sub init {
     }
   } elsif ($params{mode} =~ /^server::iobusy/) {
     if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+      #($self->{secs_busy}) = $self->{handle}->fetchrow_array(q{
+      #    SELECT ((@@IO_BUSY * CAST(@@TIMETICKS AS FLOAT)) /
+      #        (SELECT (CAST(CPU_COUNT AS FLOAT) / CAST(HYPERTHREAD_RATIO AS FLOAT)) FROM sys.dm_os_sys_info) /
+      #        1000000)
+      #});
       ($self->{secs_busy}) = $self->{handle}->fetchrow_array(q{
           SELECT ((@@IO_BUSY * CAST(@@TIMETICKS AS FLOAT)) /
-              (SELECT (CAST(CPU_COUNT AS FLOAT) / CAST(HYPERTHREAD_RATIO AS FLOAT)) FROM sys.dm_os_sys_info) /
+              (SELECT CAST(CPU_COUNT AS FLOAT) FROM sys.dm_os_sys_info) /
               1000000)
       });
       $self->valdiff(\%params, qw(secs_busy));
