@@ -128,6 +128,19 @@ sub init {
       # new: people were complaining about percentages > 100%
       # http://sqlblog.com/blogs/kalen_delaney/archive/2007/12/08/hyperthreaded-or-not.aspx
       # count only cpus, virtual or not, cores or threads
+      # this is some debugging code to see the single values with -v
+      my $cpu_busy = $self->{handle}->fetchrow_array(q{
+          SELECT @@CPU_BUSY FROM sys.dm_os_sys_info
+      });
+      my $timeticks = $self->{handle}->fetchrow_array(q{
+          SELECT CAST(@@TIMETICKS AS FLOAT) FROM sys.dm_os_sys_info
+      });
+      my $cpu_count = $self->{handle}->fetchrow_array(q{
+          SELECT CAST(CPU_COUNT AS FLOAT) FROM sys.dm_os_sys_info
+      });
+      my $hyperthread_ratio = $self->{handle}->fetchrow_array(q{
+          SELECT CAST(HYPERTHREAD_RATIO AS FLOAT) FROM sys.dm_os_sys_info
+      });
       ($self->{secs_busy}) = $self->{handle}->fetchrow_array(q{
           SELECT ((@@CPU_BUSY * CAST(@@TIMETICKS AS FLOAT)) /
               (SELECT (CAST(CPU_COUNT AS FLOAT)) FROM sys.dm_os_sys_info) /
