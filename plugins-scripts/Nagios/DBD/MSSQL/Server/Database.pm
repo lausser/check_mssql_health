@@ -165,7 +165,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
           foreach (@dbccresult) {
             #dbt_backup_start: 0x1686303d8 (dtdays=40599, dttime=7316475)    Feb 27 2011  6:46:28:250AM
             if (/dbt_backup_start: \w+\s+\(dtdays=0, dttime=0\) \(uninitialized\)/) {
-              # never backupped
+              # never backed up
               last;
             } elsif (/dbt_backup_start: \w+\s+\(dtdays=\d+, dttime=\d+\)\s+(\w+)\s+(\d+)\s+(\d+)\s+(\d+):(\d+):(\d+):\d+([AP])/) {
               require Time::Local;
@@ -556,7 +556,7 @@ sub nagios {
         $log = "log of ";
       }
       if (! defined $self->{backup_age}) { 
-        $self->add_nagios_critical(sprintf "%s%s was never backupped",
+        $self->add_nagios_critical(sprintf "%s%s was never backed up",
             $log, $self->{name}); 
         $self->{backup_age} = 0;
         $self->{backup_duration} = 0;
@@ -564,7 +564,7 @@ sub nagios {
       } else { 
         $self->add_nagios( 
             $self->check_thresholds($self->{backup_age}, 48, 72), 
-            sprintf "%s%s was backupped %dh ago", $log, $self->{name}, $self->{backup_age});
+            sprintf "%s%s was backed up %dh ago", $log, $self->{name}, $self->{backup_age});
       } 
       $self->add_perfdata(sprintf "'%s_bck_age'=%d;%s;%s", 
           $self->{name}, $self->{backup_age}, 
