@@ -40,5 +40,5 @@ rm -rf %{buildroot}
 %{_libdir}/nagios/plugins/check_mssql_health
 
 %changelog
-* Thu Aug 16 2012 Pall Sigurdsson <palli@opensource.is> 1.5.10
+* Thu Aug 16 2012 Pall Sigurdsson <palli@opensource.is> 1.5.10-1
 - Initial packaging
