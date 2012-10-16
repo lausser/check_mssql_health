@@ -4,6 +4,7 @@
 
 1.5.11 2012-07-05
 - add selects for cpu-busy to see the return values with -v
+- add some enhancements writen by Pall Sigurdsson
 
 1.5.10 2012-06-27
 - split database-backup-age to database-backup-age and database-logbackup-age (Thanks Simon Meggle)
