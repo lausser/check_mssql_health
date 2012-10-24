@@ -80,8 +80,8 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
             # starttime = Oct 22 2012 01:51:41:373AM = DBD::Sybase datetype LONG
           my $sql = q{
               DECLARE @path NVARCHAR(1000)
-              SELECT @path = Substring(PATH, 1, Len(PATH) - Charindex('\', Reverse(PATH))) +
-                                    '\log.trc'
+              SELECT
+                  @path = Substring(PATH, 1, Len(PATH) - Charindex('\', Reverse(PATH))) + '\log.trc'
               FROM
                   sys.traces
               WHERE
@@ -99,7 +99,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
               ON
                   e.category_id = cat.category_id
               WHERE
-                  e.name IN( 'Data File Auto Grow', 'Log File Auto Grow' ) AND datediff(Minute, starttime, current_timestamp) < ?
+                  e.name IN( EVENTNAME ) AND datediff(Minute, starttime, current_timestamp) < ?
               GROUP BY
                   databasename
           };
@@ -127,6 +127,68 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         $thisparams{name} = $name;
         $thisparams{growinterval} = $lookback;
         $thisparams{autogrowths} = $autogrowths;
+        my $database = DBD::MSSQL::Server::Database->new(
+            %thisparams);
+        add_database($database);
+        $num_databases++;
+      }
+      if (! $num_databases) {
+        $initerrors = 1;
+        return undef;
+      }
+    } elsif ($params{mode} =~ /server::database::dbccshrinks/) {
+      my @databasenames = ();
+      my @databaseresult = ();
+      my $lookback = $params{lookback} || 30;
+      if ($params{product} eq "MSSQL") {
+        if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+          @databasenames = $params{handle}->fetchall_array(q{
+            SELECT name FROM master.sys.databases
+          });
+          @databasenames = map { $_->[0] } @databasenames;
+            # starttime = Oct 22 2012 01:51:41:373AM = DBD::Sybase datetype LONG
+          my $sql = q{
+              DECLARE @path NVARCHAR(1000)
+              SELECT
+                  @path = Substring(PATH, 1, Len(PATH) - Charindex('\', Reverse(PATH))) + '\log.trc'
+              FROM
+                  sys.traces
+              WHERE
+                  id = 1
+              SELECT
+                  databasename, COUNT(*)
+              FROM 
+                  ::fn_trace_gettable(@path, 0)
+              INNER JOIN
+                  sys.trace_events e
+              ON
+                  eventclass = trace_event_id
+              INNER JOIN
+                  sys.trace_categories AS cat
+              ON
+                  e.category_id = cat.category_id
+              WHERE
+                  EventClass = 116 AND TEXTData LIKE '%SHRINK%' AND datediff(Minute, starttime, current_timestamp) < ?
+              GROUP BY
+                  databasename
+          };
+          @databaseresult = $params{handle}->fetchall_array($sql, $lookback);
+        }
+      }
+      foreach my $name (@databasenames) {
+        next if $params{database} && $name ne $params{database};
+        if ($params{regexp}) {
+          next if $params{selectname} && $name !~ /$params{selectname}/;
+        } else {
+          next if $params{selectname} && lc $params{selectname} ne lc $name;
+        }
+        my $autoshrinks = eval {
+            map { $_->[1] } grep { $_->[0] eq $name } @databaseresult;
+        } || 0;
+        my %thisparams = %params;
+        $thisparams{name} = $name;
+        $thisparams{shrinkinterval} = $lookback;
+        $thisparams{autoshrinks} = $autoshrinks;
         my $database = DBD::MSSQL::Server::Database->new(
             %thisparams);
         add_database($database);
@@ -272,6 +334,8 @@ sub new {
     backup_duration => $params{backup_duration},
     autogrowths => $params{autogrowths},
     growinterval => $params{growinterval},
+    autoshrinks => $params{autoshrinks},
+    shrinkinterval => $params{shrinkinterval},
   };
   bless $self, $class;
   $self->init(%params);
@@ -632,6 +696,11 @@ sub nagios {
           $self->check_thresholds($self->{autogrowths}, 1, 5), 
           sprintf "%s had %d %sfile auto grow events in the last %d minutes", $self->{name},
               $self->{autogrowths}, $type, $self->{growinterval});
+    } elsif ($params{mode} =~ /server::database::dbccshrinks/) {
+      # nur relevant fuer master
+      $self->add_nagios( 
+          $self->check_thresholds($self->{autoshrinks}, 1, 5), 
+          sprintf "%s had %d DBCC Shrink events in the last %d minutes", $self->{name}, $self->{autoshrinks}, $self->{shrinkinterval});
     } elsif ($params{mode} =~ /server::database::.*backupage/) {
       my $log = "";
       if ($params{mode} =~ /server::database::logbackupage/) {
