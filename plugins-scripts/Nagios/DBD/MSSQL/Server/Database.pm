@@ -189,13 +189,13 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         } else {
           next if $params{selectname} && lc $params{selectname} ne lc $name;
         }
-        my $autoshrinks = eval {
+        my $autogrowshrink = eval {
             map { $_->[1] } grep { $_->[0] eq $name } @databaseresult;
         } || 0;
         my %thisparams = %params;
         $thisparams{name} = $name;
-        $thisparams{shrinkinterval} = $lookback;
-        $thisparams{autoshrinks} = $autoshrinks;
+        $thisparams{growshrinkinterval} = $lookback;
+        $thisparams{autogrowshrink} = $autogrowshrink;
         my $database = DBD::MSSQL::Server::Database->new(
             %thisparams);
         add_database($database);
