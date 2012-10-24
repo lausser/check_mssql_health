@@ -111,7 +111,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
             $sql =~ s/EVENTNAME/'Data File Auto Grow'/;
           }
           if ($params{mode} =~ /server::database::autoshrinks::file/) {
-            $sql =~ s/EVENTNAME/'Data File Auto Shrink', 'Log File Auto Grow'/;
+            $sql =~ s/EVENTNAME/'Data File Auto Shrink', 'Log File Auto Shrink'/;
           } elsif ($params{mode} =~ /server::database::autoshrinks::logfile/) {
             $sql =~ s/EVENTNAME/'Log File Auto Shrink'/;
           } elsif ($params{mode} =~ /server::database::autoshrinks::datafile/) {
