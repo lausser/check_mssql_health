@@ -67,7 +67,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         $initerrors = 1;
         return undef;
       }
-    } elsif ($params{mode} =~ /server::database::autogrowths/) {
+    } elsif ($params{mode} =~ /server::database::auto(growths|shrinks)/) {
       my @databasenames = ();
       my @databaseresult = ();
       my $lookback = $params{lookback} || 30;
@@ -110,6 +110,13 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
           } elsif ($params{mode} =~ /server::database::autogrowths::datafile/) {
             $sql =~ s/EVENTNAME/'Data File Auto Grow'/;
           }
+          if ($params{mode} =~ /server::database::autoshrinks::file/) {
+            $sql =~ s/EVENTNAME/'Data File Auto Shrink', 'Log File Auto Grow'/;
+          } elsif ($params{mode} =~ /server::database::autoshrinks::logfile/) {
+            $sql =~ s/EVENTNAME/'Log File Auto Shrink'/;
+          } elsif ($params{mode} =~ /server::database::autoshrinks::datafile/) {
+            $sql =~ s/EVENTNAME/'Data File Auto Shrink'/;
+          }
           @databaseresult = $params{handle}->fetchall_array($sql, $lookback);
         }
       }
@@ -120,13 +127,13 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         } else {
           next if $params{selectname} && lc $params{selectname} ne lc $name;
         }
-        my $autogrowths = eval {
+        my $autogrowshrink = eval {
             map { $_->[1] } grep { $_->[0] eq $name } @databaseresult;
         } || 0;
         my %thisparams = %params;
         $thisparams{name} = $name;
-        $thisparams{growinterval} = $lookback;
-        $thisparams{autogrowths} = $autogrowths;
+        $thisparams{growshrinkinterval} = $lookback;
+        $thisparams{autogrowshrink} = $autogrowshrink;
         my $database = DBD::MSSQL::Server::Database->new(
             %thisparams);
         add_database($database);
@@ -332,10 +339,8 @@ sub new {
     datafiles => [],
     backup_age => $params{backup_age},
     backup_duration => $params{backup_duration},
-    autogrowths => $params{autogrowths},
-    growinterval => $params{growinterval},
-    autoshrinks => $params{autoshrinks},
-    shrinkinterval => $params{shrinkinterval},
+    autogrowshrink => $params{autogrowshrink},
+    growshrinkinterval => $params{growshrinkinterval},
   };
   bless $self, $class;
   $self->init(%params);
@@ -685,17 +690,19 @@ sub nagios {
             lc $self->{name},
             $self->{allocated_percent});
       }
-    } elsif ($params{mode} =~ /server::database::autogrowths::/) {
+    } elsif ($params{mode} =~ /server::database::auto(growths|shrinks)/) {
       my $type = ""; 
-      if ($params{mode} =~ /server::database::autogrowths::datafile/) {
+      if ($params{mode} =~ /::datafile/) {
         $type = "data ";
-      } elsif ($params{mode} =~ /server::database::autogrowths::logfile/) {
+      } elsif ($params{mode} =~ /::logfile/) {
         $type = "log ";
       }
       $self->add_nagios( 
-          $self->check_thresholds($self->{autogrowths}, 1, 5), 
-          sprintf "%s had %d %sfile auto grow events in the last %d minutes", $self->{name},
-              $self->{autogrowths}, $type, $self->{growinterval});
+          $self->check_thresholds($self->{autogrowshrink}, 1, 5), 
+          sprintf "%s had %d %sfile auto %s events in the last %d minutes", $self->{name},
+              $self->{autogrowshrink}, $type, 
+              ($params{mode} =~ /server::database::autogrowths/) ? "grow" : "shrink",
+              $self->{growshrinkinterval});
     } elsif ($params{mode} =~ /server::database::dbccshrinks/) {
       # nur relevant fuer master
       $self->add_nagios( 
