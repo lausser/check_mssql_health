@@ -706,8 +706,8 @@ sub nagios {
     } elsif ($params{mode} =~ /server::database::dbccshrinks/) {
       # nur relevant fuer master
       $self->add_nagios( 
-          $self->check_thresholds($self->{autoshrinks}, 1, 5), 
-          sprintf "%s had %d DBCC Shrink events in the last %d minutes", $self->{name}, $self->{autoshrinks}, $self->{shrinkinterval});
+          $self->check_thresholds($self->{autogrowshrink}, 1, 5), 
+          sprintf "%s had %d DBCC Shrink events in the last %d minutes", $self->{name}, $self->{autogrowshrink}, $self->{growshrinkinterval});
     } elsif ($params{mode} =~ /server::database::.*backupage/) {
       my $log = "";
       if ($params{mode} =~ /server::database::logbackupage/) {
