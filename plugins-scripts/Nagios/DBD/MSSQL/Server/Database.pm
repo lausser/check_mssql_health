@@ -67,6 +67,75 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         $initerrors = 1;
         return undef;
       }
+    } elsif ($params{mode} =~ /server::database::autogrow/) {
+      my @databasenames = ();
+      my @databaseresult = ();
+      my $lookback = $params{lookback} || 30;
+      if ($params{product} eq "MSSQL") {
+        if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+          @databasenames = $params{handle}->fetchall_array(q{
+            SELECT name FROM master.sys.databases
+          });
+          @databasenames = map { $_->[0] } @databasenames;
+            # starttime = Oct 22 2012 01:51:41:373AM = DBD::Sybase datetype LONG
+          my $sql = q{
+              DECLARE @path NVARCHAR(1000)
+              SELECT @path = Substring(PATH, 1, Len(PATH) - Charindex('\', Reverse(PATH))) +
+                                    '\log.trc'
+              FROM
+                  sys.traces
+              WHERE
+                  id = 1
+              SELECT
+                  databasename, COUNT(*)
+              FROM 
+                  ::fn_trace_gettable(@path, 0)
+              INNER JOIN
+                  sys.trace_events e
+              ON
+                  eventclass = trace_event_id
+              INNER JOIN
+                  sys.trace_categories AS cat
+              ON
+                  e.category_id = cat.category_id
+              WHERE
+                  e.name IN( 'Data File Auto Grow', 'Log File Auto Grow' ) AND datediff(Minute, starttime, current_timestamp) < ?
+              GROUP BY
+                  databasename
+          };
+          if ($params{mode} =~ /server::database::autogrow::file/) {
+            $sql =~ s/EVENTNAME/'Data File Auto Grow', 'Log File Auto Grow'/;
+          } elsif ($params{mode} =~ /server::database::autogrow::logfile/) {
+            $sql =~ s/EVENTNAME/'Log File Auto Grow'/;
+          } elsif ($params{mode} =~ /server::database::autogrow::datafile/) {
+            $sql =~ s/EVENTNAME/'Data File Auto Grow'/;
+          }
+          @databaseresult = $params{handle}->fetchall_array($sql, $lookback);
+        }
+      }
+      foreach my $name (@databasenames) {
+        next if $params{database} && $name ne $params{database};
+        if ($params{regexp}) {
+          next if $params{selectname} && $name !~ /$params{selectname}/;
+        } else {
+          next if $params{selectname} && lc $params{selectname} ne lc $name;
+        }
+        my $autogrows = eval {
+            map { $_->[1] } grep { $_->[0] eq $name } @databaseresult;
+        } || 0;
+        my %thisparams = %params;
+        $thisparams{name} = $name;
+        $thisparams{growinterval} = $lookback;
+        $thisparams{autogrows} = $autogrows;
+        my $database = DBD::MSSQL::Server::Database->new(
+            %thisparams);
+        add_database($database);
+        $num_databases++;
+      }
+      if (! $num_databases) {
+        $initerrors = 1;
+        return undef;
+      }
     } elsif ($params{mode} =~ /server::database::.*backupage/) {
       my @databaseresult = ();
       if ($params{product} eq "MSSQL") {
@@ -94,7 +163,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
                 DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup,
                 DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
                 FROM msdb.dbo.backupset BS
-                WHERE BS.type = 'D'
+                WHERE BS.type = 'L'
                 GROUP BY BS.[database_name]
               ) BS1 ON D.name = BS1.[database_name]
               ORDER BY D.[name];
@@ -201,6 +270,8 @@ sub new {
     datafiles => [],
     backup_age => $params{backup_age},
     backup_duration => $params{backup_duration},
+    autogrows => $params{autogrows},
+    growinterval => $params{growinterval},
   };
   bless $self, $class;
   $self->init(%params);
@@ -550,6 +621,17 @@ sub nagios {
             lc $self->{name},
             $self->{allocated_percent});
       }
+    } elsif ($params{mode} =~ /server::database::autogrow::/) {
+      my $type = ""; 
+      if ($params{mode} =~ /server::database::autogrow::datafile/) {
+        $type = "data ";
+      } elsif ($params{mode} =~ /server::database::autogrow::logfile/) {
+        $type = "log ";
+      }
+      $self->add_nagios( 
+          $self->check_thresholds($self->{autogrows}, 1, 5), 
+          sprintf "%s had %d %sfile auto grow events in the last %d minutes", $self->{name},
+              $self->{autogrows}, $type, $self->{growinterval});
     } elsif ($params{mode} =~ /server::database::.*backupage/) {
       my $log = "";
       if ($params{mode} =~ /server::database::logbackupage/) {

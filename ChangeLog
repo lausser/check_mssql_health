@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.12 2012-10-24
+- add database-file-auto-grow (and database-logfile-auto-grow, database-datafile-auto-grow)
+
 1.5.11 2012-07-05
 - add selects for cpu-busy to see the return values with -v
 - add some enhancements writen by Pall Sigurdsson
