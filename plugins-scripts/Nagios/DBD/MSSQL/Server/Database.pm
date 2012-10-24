@@ -67,7 +67,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         $initerrors = 1;
         return undef;
       }
-    } elsif ($params{mode} =~ /server::database::autogrow/) {
+    } elsif ($params{mode} =~ /server::database::autogrowths/) {
       my @databasenames = ();
       my @databaseresult = ();
       my $lookback = $params{lookback} || 30;
@@ -103,11 +103,11 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
               GROUP BY
                   databasename
           };
-          if ($params{mode} =~ /server::database::autogrow::file/) {
+          if ($params{mode} =~ /server::database::autogrowths::file/) {
             $sql =~ s/EVENTNAME/'Data File Auto Grow', 'Log File Auto Grow'/;
-          } elsif ($params{mode} =~ /server::database::autogrow::logfile/) {
+          } elsif ($params{mode} =~ /server::database::autogrowths::logfile/) {
             $sql =~ s/EVENTNAME/'Log File Auto Grow'/;
-          } elsif ($params{mode} =~ /server::database::autogrow::datafile/) {
+          } elsif ($params{mode} =~ /server::database::autogrowths::datafile/) {
             $sql =~ s/EVENTNAME/'Data File Auto Grow'/;
           }
           @databaseresult = $params{handle}->fetchall_array($sql, $lookback);
@@ -120,13 +120,13 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         } else {
           next if $params{selectname} && lc $params{selectname} ne lc $name;
         }
-        my $autogrows = eval {
+        my $autogrowths = eval {
             map { $_->[1] } grep { $_->[0] eq $name } @databaseresult;
         } || 0;
         my %thisparams = %params;
         $thisparams{name} = $name;
         $thisparams{growinterval} = $lookback;
-        $thisparams{autogrows} = $autogrows;
+        $thisparams{autogrowths} = $autogrowths;
         my $database = DBD::MSSQL::Server::Database->new(
             %thisparams);
         add_database($database);
@@ -270,7 +270,7 @@ sub new {
     datafiles => [],
     backup_age => $params{backup_age},
     backup_duration => $params{backup_duration},
-    autogrows => $params{autogrows},
+    autogrowths => $params{autogrowths},
     growinterval => $params{growinterval},
   };
   bless $self, $class;
@@ -621,17 +621,17 @@ sub nagios {
             lc $self->{name},
             $self->{allocated_percent});
       }
-    } elsif ($params{mode} =~ /server::database::autogrow::/) {
+    } elsif ($params{mode} =~ /server::database::autogrowths::/) {
       my $type = ""; 
-      if ($params{mode} =~ /server::database::autogrow::datafile/) {
+      if ($params{mode} =~ /server::database::autogrowths::datafile/) {
         $type = "data ";
-      } elsif ($params{mode} =~ /server::database::autogrow::logfile/) {
+      } elsif ($params{mode} =~ /server::database::autogrowths::logfile/) {
         $type = "log ";
       }
       $self->add_nagios( 
-          $self->check_thresholds($self->{autogrows}, 1, 5), 
+          $self->check_thresholds($self->{autogrowths}, 1, 5), 
           sprintf "%s had %d %sfile auto grow events in the last %d minutes", $self->{name},
-              $self->{autogrows}, $type, $self->{growinterval});
+              $self->{autogrowths}, $type, $self->{growinterval});
     } elsif ($params{mode} =~ /server::database::.*backupage/) {
       my $log = "";
       if ($params{mode} =~ /server::database::logbackupage/) {
