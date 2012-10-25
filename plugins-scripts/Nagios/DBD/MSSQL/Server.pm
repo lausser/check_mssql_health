@@ -116,6 +116,14 @@ sub init {
     } else {
       $self->add_nagios_critical("unable to aquire database info");
     }
+  } elsif ($params{mode} =~ /^server::jobs/) {
+    DBD::MSSQL::Server::Job::init_jobs(%params);
+    if (my @jobs =
+        DBD::MSSQL::Server::Job::return_jobs()) {
+      $self->{jobs} = \@jobs;
+    } else {
+      $self->add_nagios_critical(sprintf "no jobs ran within the last %d minutes", $params{lookback});
+    }
   } elsif ($params{mode} =~ /^server::connectiontime/) {
     $self->{connection_time} = $self->{tac} - $self->{tic};
   } elsif ($params{mode} =~ /^server::cpubusy/) {
@@ -372,6 +380,11 @@ sub nagios {
         $self->merge_nagios($_);
       }
     } elsif ($params{mode} =~ /^server::database/) {
+    } elsif ($params{mode} =~ /^server::jobs/) {
+      foreach (@{$self->{jobs}}) {
+        $_->nagios(%params);
+        $self->merge_nagios($_);
+      }
     } elsif ($params{mode} =~ /^server::lock/) {
       foreach (@{$self->{locks}}) {
         $_->nagios(%params);

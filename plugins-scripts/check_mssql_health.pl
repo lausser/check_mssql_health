@@ -127,6 +127,11 @@ my @modes = (
   ['server::database::dbccshrinks::file',
       'database-file-dbcc-shrinks', undef,
       'The number of DBCC File Shrink events (either data or log) in the last <n> minutes (use --lookback)' ],
+
+  ['server::jobs::failed',
+      'failed-jobs', undef,
+      'The number of jobs which did not exit successful in the last <n> minutes (use --lookback)' ],
+
   ['server::sql',
       'sql', undef,
       'any sql command returning a single number' ],
@@ -537,7 +542,7 @@ my %params = (
     criticalrange => $commandline{critical},
     dbthresholds => $commandline{dbthresholds},
     absolute => $commandline{absolute},
-    lookback => $commandline{lookback},
+    lookback => $commandline{lookback} || 30,
     tablespace => $commandline{tablespace},
     database => $commandline{database},
     datafile => $commandline{datafile},
