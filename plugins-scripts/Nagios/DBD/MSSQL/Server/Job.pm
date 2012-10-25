@@ -189,7 +189,7 @@ sub nagios {
           $self->add_nagios_critical(
               sprintf "%s failed: %s", $self->{name}, $self->{lastrunstatusmessage});
       } elsif ($self->{lastrunstatus} eq "retry" || $self->{lastrunstatus} eq "cancelled") {
-          $self->add_nagios_critical(
+          $self->add_nagios_warning(
               sprintf "%s %s: %s", $self->{name}, $self->{lastrunstatus}, $self->{lastrunstatusmessage});
       } else {
         $self->add_nagios(
