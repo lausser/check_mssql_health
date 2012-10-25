@@ -67,6 +67,37 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         $initerrors = 1;
         return undef;
       }
+    } elsif ($params{mode} =~ /server::database::online/) {
+      my @databaseresult = ();
+      if ($params{product} eq "MSSQL") {
+        if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+          @databaseresult = $params{handle}->fetchall_array(q{
+            SELECT name, state, state_desc, collation_name FROM master.sys.databases
+          });
+        }
+      }
+      foreach (@databaseresult) {
+        my ($name, $state, $state_desc, $collation_name) = @{$_};
+        next if $params{database} && $name ne $params{database};
+        if ($params{regexp}) {
+          next if $params{selectname} && $name !~ /$params{selectname}/;
+        } else {
+          next if $params{selectname} && lc $params{selectname} ne lc $name;
+        }
+        my %thisparams = %params;
+        $thisparams{name} = $name;
+        $thisparams{state} = $state;
+        $thisparams{state_desc} = $state_desc;
+        $thisparams{collation_name} = $collation_name;
+        my $database = DBD::MSSQL::Server::Database->new(
+            %thisparams);
+        add_database($database);
+        $num_databases++;
+      }
+      if (! $num_databases) {
+        $initerrors = 1;
+        return undef;
+      }
     } elsif ($params{mode} =~ /server::database::auto(growths|shrinks)/) {
       my @databasenames = ();
       my @databaseresult = ();
@@ -341,6 +372,9 @@ sub new {
     backup_duration => $params{backup_duration},
     autogrowshrink => $params{autogrowshrink},
     growshrinkinterval => $params{growshrinkinterval},
+    state => $params{state},
+    state_desc => lc $params{state_desc},
+    collation_name => $params{collation_name},
   };
   bless $self, $class;
   $self->init(%params);
@@ -589,6 +623,22 @@ sub nagios {
 	printf "%s\n", $_->{logicalfilename};
       }
       $self->add_nagios_ok("have fun");
+    } elsif ($params{mode} =~ /server::database::online/) {
+      if ($self->{state_desc} eq "online") {
+        if ($self->{collation_name}) {
+          $self->add_nagios_ok(
+            sprintf "%s is %s and accepting connections", $self->{name}, $self->{state_desc});
+        } else {
+          $self->add_nagios_warning(
+            sprintf "%s is %s but not accepting connections", $self->{name}, $self->{state_desc});
+        }
+      } elsif ($self->{state_desc} =~ /^recover/) {
+        $self->add_nagios_warning(
+            sprintf "%s is %s", $self->{name}, $self->{state_desc});
+      } else {
+        $self->add_nagios_critical(
+            sprintf "%s is %s", $self->{name}, $self->{state_desc});
+      }
     } elsif ($params{mode} =~ /^server::database::transactions/) {
       $self->add_nagios(
           $self->check_thresholds($self->{transactions_per_sec}, 10000, 50000),

@@ -94,6 +94,9 @@ my @modes = (
       'Dirty pages flushed to disk per second. (usually by a checkpoint)' ],
 
 
+  ['server::database::online',
+      'database-online', undef,
+      'Check if a database is online and accepting connections' ],
   ['server::database::databasefree',
       'database-free', undef,
       'Free space in database' ],

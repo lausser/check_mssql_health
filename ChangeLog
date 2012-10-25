@@ -4,6 +4,7 @@
 
 1.5.13 2012-10-25
 - add failed-jobs
+- add database-online
 
 1.5.12 2012-10-24
 - add database-file-auto-growths (and database-logfile-auto-growths, database-datafile-auto-growths)
