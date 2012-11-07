@@ -100,9 +100,6 @@ my @modes = (
   ['server::database::databasefree',
       'database-free', undef,
       'Free space in database' ],
-  ['server::database::databasefree',
-      'database-free', undef,
-      'Free space in database' ],
   ['server::database::backupage',
       'database-backup-age', ['backup-age'],
       'Elapsed time (in hours) since a database was last backed up' ],
@@ -204,11 +201,15 @@ EOUS
     --units
        one of %, KB, MB, GB. This is used for a better output of mode=sql
        and for specifying thresholds for mode=tablespace-free
+    --offlineok
+       if mode database-free finds a database which is currently offline,
+       a WARNING is issued. If you don't want this and if offline databases
+       are perfectly ok for you, then add --offlineok. You will get OK instead.
 
   Database-related modes check all databases in one run by default.
   If only a single database should be checked, use the --name parameter.
   The same applies to datafile-related modes.
-  
+
   In mode sql you can url-encode the statement so you will not have to mess
   around with special characters in your Nagios service definitions.
   Instead of 
@@ -219,8 +220,7 @@ EOUS
   option and it will encode the standard input.
 
   You can find the full documentation for this plugin at
-  http://www.consol.de/opensource/nagios/check-mssql-health or
-  http://www.consol.com/opensource/nagios/check-mssql-health
+  http://labs.consol.de/nagios/check_mssql_health or
 
 
 EOUS

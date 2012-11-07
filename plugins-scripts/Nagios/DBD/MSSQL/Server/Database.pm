@@ -792,7 +792,8 @@ sub nagios {
       if ($params{mode} =~ /server::database::logbackupage/) {
         $log = "log of ";
       }
-      if ($self->{recovery_model} == 3) {
+      if ($params{mode} =~ /server::database::logbackupage/ &&
+          $self->{recovery_model} == 3) {
         $self->add_nagios_ok(sprintf "%s has no logs",
             $self->{name}); 
       } else {
