@@ -32,23 +32,23 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
       if ($params{product} eq "MSSQL") {
         if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
           @databaseresult = $params{handle}->fetchall_array(q{
-            SELECT name, database_id FROM master.sys.databases
+            SELECT name, database_id, state FROM master.sys.databases
           });
         } else {
           @databaseresult = $params{handle}->fetchall_array(q{
-            SELECT name, dbid FROM master.dbo.sysdatabases
+            SELECT name, dbid, status FROM master.dbo.sysdatabases
           });
         }
       } elsif ($params{product} eq "ASE") {
         @databaseresult = $params{handle}->fetchall_array(q{
-          SELECT name, dbid FROM master.dbo.sysdatabases
+          SELECT name, dbid, status2 FROM master.dbo.sysdatabases
         });
       }
       if ($params{mode} =~ /server::database::transactions/) {
         push(@databaseresult, [ '_Total', 0 ]);
       }
       foreach (@databaseresult) {
-        my ($name, $id) = @{$_};
+        my ($name, $id, $state) = @{$_};
         next if $params{database} && $name ne $params{database};
         if ($params{regexp}) {
           next if $params{selectname} && $name !~ /$params{selectname}/;
@@ -58,6 +58,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         my %thisparams = %params;
         $thisparams{name} = $name;
         $thisparams{id} = $id;
+        $thisparams{state} = $state;
         my $database = DBD::MSSQL::Server::Database->new(
             %thisparams);
         add_database($database);
@@ -242,7 +243,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
           if ($params{mode} =~ /server::database::backupage/) {
             @databaseresult = $params{handle}->fetchall_array(q{
-              SELECT D.name AS [database_name], BS1.last_backup, BS1.last_duration
+              SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
               FROM sys.databases D
               LEFT JOIN (
                 SELECT BS.[database_name],
@@ -256,7 +257,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
             });
           } elsif ($params{mode} =~ /server::database::logbackupage/) {
             @databaseresult = $params{handle}->fetchall_array(q{
-              SELECT D.name AS [database_name], BS1.last_backup, BS1.last_duration
+              SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
               FROM sys.databases D
               LEFT JOIN (
                 SELECT BS.[database_name],
@@ -272,7 +273,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         } else {
           @databaseresult = $params{handle}->fetchall_array(q{
             SELECT
-              a.name, 
+              a.name, a.recovery_model,
               DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
               DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
             FROM master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
@@ -290,7 +291,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
             return $a->[1] <=> $b->[1];
           }
         } @databaseresult) { 
-          my ($name, $age, $duration) = @{$_};
+          my ($name, $recovery_model, $age, $duration) = @{$_};
           next if $params{database} && $name ne $params{database};
           if ($params{regexp}) { 
             next if $params{selectname} && $name !~ /$params{selectname}/;
@@ -301,6 +302,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
           $thisparams{name} = $name;
           $thisparams{backup_age} = $age;
           $thisparams{backup_duration} = $duration;
+          $thisparams{recovery_model} = $recovery_model;
           my $database = DBD::MSSQL::Server::Database->new(
               %thisparams);
           add_database($database);
@@ -344,6 +346,8 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
               last;
             }
           }
+          # to keep compatibility with mssql. recovery_model=3=simple will be skipped later
+          $thisparams{recovery_model} = 0;
           my $database = DBD::MSSQL::Server::Database->new(
               %thisparams);
           add_database($database);
@@ -375,6 +379,7 @@ sub new {
     state => $params{state},
     state_desc => lc $params{state_desc},
     collation_name => $params{collation_name},
+    recovery_model => $params{recovery_model},
   };
   bless $self, $class;
   $self->init(%params);
@@ -396,6 +401,16 @@ sub init {
       $self->add_nagios_critical("unable to aquire datafile info");
     }
   } elsif ($params{mode} =~ /server::database::databasefree/) {
+    if (DBD::MSSQL::Server::return_first_server()->{product} eq "ASE") {
+      # 0x0010 offline
+      # 0x0020 offline until recovery completes
+      $self->{offline} = $self->{state} & 0x0030;
+    } elsif (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+      $self->{offline} = $self->{state} == 6 ? 1 : 0;
+    } else {
+      # bit 512 is offline
+      $self->{offline} = $self->{state} & 0x0200;
+    }
     ###################################################################################
     #                            fuer's museum
     # 1> sp_spaceused
@@ -430,8 +445,12 @@ sub init {
       #printf "database_name %s\ndatabase_size %s\nreserved %s\ndata %s\nindex_size %s\nunused %s\n",
       #    $database_name, $database_size, $reserved, $data, $index_size, $unused;
       if (! $database_name) {
-        if (exists $params{handle}->{errrow}) {
-          foreach (@{$params{handle}->{errrow}}) {
+        #if (exists $params{handle}->{errrow}) {
+        #  foreach (@{$params{handle}->{errrow}}) {
+        #    $self->add_nagios_unknown($_);
+        #  }
+        if ($params{handle}->{errstr}) {
+          foreach (split(/\n/, $params{handle}->{errstr})) {
             $self->add_nagios_unknown($_);
           }
         } else {
@@ -541,6 +560,11 @@ sub init {
         #$sql =~ s/\[\?\]/$self->{name}/g;
         $sql =~ s/\?/$self->{name}/g;
         @fileresult = $self->{handle}->fetchall_array($sql);
+        if ($self->{handle}->{errstr} =~ /offline/i) {
+          $self->{allocated_mb} = 0;
+          $self->{max_mb} = 1;
+          $self->{used_mb} = 0;
+        }
       } else {
         my $sql = q{
             SELECT
@@ -671,7 +695,12 @@ sub nagios {
       }
       $self->{warning_bytes} = 0;
       $self->{critical_bytes} = 0;
-      if ($params{units} eq "%") {
+      if ($self->{offline}) {
+        $self->add_nagios(
+            $params{offlineok} ? 0 : 1,
+            sprintf("database %s is offline", $self->{name})
+        );
+      } elsif ($params{units} eq "%") {
         $self->add_nagios(
             $self->check_thresholds($self->{free_percent}, "5:", "2:"),
                 sprintf("database %s has %.2f%% free space left",
@@ -763,22 +792,27 @@ sub nagios {
       if ($params{mode} =~ /server::database::logbackupage/) {
         $log = "log of ";
       }
-      if (! defined $self->{backup_age}) { 
-        $self->add_nagios_critical(sprintf "%s%s was never backed up",
-            $log, $self->{name}); 
-        $self->{backup_age} = 0;
-        $self->{backup_duration} = 0;
-        $self->check_thresholds($self->{backup_age}, 48, 72); # init wg perfdata
-      } else { 
-        $self->add_nagios( 
-            $self->check_thresholds($self->{backup_age}, 48, 72), 
-            sprintf "%s%s was backed up %dh ago", $log, $self->{name}, $self->{backup_age});
-      } 
-      $self->add_perfdata(sprintf "'%s_bck_age'=%d;%s;%s", 
-          $self->{name}, $self->{backup_age}, 
-          $self->{warningrange}, $self->{criticalrange}); 
-      $self->add_perfdata(sprintf "'%s_bck_time'=%d", 
-          $self->{name}, $self->{backup_duration}); 
+      if ($self->{recovery_model} == 3) {
+        $self->add_nagios_ok(sprintf "%s has no logs",
+            $self->{name}); 
+      } else {
+        if (! defined $self->{backup_age}) { 
+          $self->add_nagios_critical(sprintf "%s%s was never backed up",
+              $log, $self->{name}); 
+          $self->{backup_age} = 0;
+          $self->{backup_duration} = 0;
+          $self->check_thresholds($self->{backup_age}, 48, 72); # init wg perfdata
+        } else { 
+          $self->add_nagios( 
+              $self->check_thresholds($self->{backup_age}, 48, 72), 
+              sprintf "%s%s was backed up %dh ago", $log, $self->{name}, $self->{backup_age});
+        } 
+        $self->add_perfdata(sprintf "'%s_bck_age'=%d;%s;%s", 
+            $self->{name}, $self->{backup_age}, 
+            $self->{warningrange}, $self->{criticalrange}); 
+        $self->add_perfdata(sprintf "'%s_bck_time'=%d", 
+            $self->{name}, $self->{backup_duration}); 
+      }
     } 
   }
 }

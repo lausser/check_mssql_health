@@ -2,6 +2,11 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.14 2012-11-07
+- database-free can now handle offline databases 
+- add --offlineok
+- exclude dbs with recovery model simple from database-logbackup-age
+
 1.5.13 2012-10-25
 - add failed-jobs
 - add database-online

@@ -1299,6 +1299,8 @@ sub init {
       $retval = undef;
     } elsif ($stderrvar && $stderrvar =~ /can't change context to database/) {
       $self->{errstr} = $stderrvar;
+    } else {
+      $self->{errstr} = "";
     }
   }
   $self->{tac} = Time::HiRes::time();
@@ -1311,7 +1313,10 @@ sub fetchrow_array {
   my @arguments = @_;
   my $sth = undef;
   my @row = ();
-  my @errrow = ();
+  my $stderrvar;
+  *SAVEERR = *STDERR;
+  open ERR ,'>',\$stderrvar;
+  *STDERR = *ERR;
   eval {
     if ($self->{dsn} =~ /tdsLevel/) {
       # better install a handler here. otherwise the plugin output is
@@ -1319,7 +1324,8 @@ sub fetchrow_array {
       $self->{handle}->{syb_err_handler} = sub {
         my($err, $sev, $state, $line, $server,
             $proc, $msg, $sql, $err_type) = @_;
-        push(@errrow, $msg);
+        #push(@errrow, $msg);
+        $self->{errstr} = join("\n", (split(/\n/, $self->{errstr}), $msg));
         return 0;
       };
     }
@@ -1344,17 +1350,15 @@ sub fetchrow_array {
     $self->trace(sprintf "RESULT:\n%s\n",
         Data::Dumper::Dumper(\@row));
   }; 
+  *STDERR = *SAVEERR;
+  $self->{errstr} = join("\n", (split(/\n/, $self->{errstr}), $stderrvar)) if $stderrvar;
   if ($@) {
-    printf STDERR "database error %s\n", $@;
     $self->debug(sprintf "bumm %s", $@);
   }
   if (-f "/tmp/check_mssql_health_simulation/".$self->{mode}) {
     my $simulation = do { local (@ARGV, $/) = 
         "/tmp/check_mssql_health_simulation/".$self->{mode}; <> };
     @row = split(/\s+/, (split(/\n/, $simulation))[0]);
-  }
-  if (@errrow) {
-    $self->{errrow} = \@errrow;
   }
   return $row[0] unless wantarray;
   return @row;
@@ -1366,6 +1370,10 @@ sub fetchall_array {
   my @arguments = @_;
   my $sth = undef;
   my $rows = undef;
+  my $stderrvar;
+  *SAVEERR = *STDERR;
+  open ERR ,'>',\$stderrvar;
+  *STDERR = *ERR;
   eval {
     $self->trace(sprintf "SQL:\n%s\nARGS:\n%s\n",
         $sql, Data::Dumper::Dumper(\@arguments));
@@ -1391,8 +1399,11 @@ sub fetchall_array {
     $self->trace(sprintf "RESULT:\n%s\n",
         Data::Dumper::Dumper($rows));
   }; 
+  *STDERR = *SAVEERR;
+  $self->{errstr} = join("\n", (split(/\n/, $self->{errstr}), $stderrvar)) if $stderrvar;
   if ($@) {
-    printf STDERR "bumm %s\n", $@;
+    $self->debug(sprintf "bumm %s", $@);
+    $rows = [];
   }
   if (-f "/tmp/check_mssql_health_simulation/".$self->{mode}) {
     my $simulation = do { local (@ARGV, $/) = 
