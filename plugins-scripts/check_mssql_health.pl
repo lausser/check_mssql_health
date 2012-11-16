@@ -289,6 +289,7 @@ my @params = (
     "database=s",
     "datafile=s",
     "offlineok",
+    "mitigation=s",
     "waitevent=s",
     "name=s",
     "name2=s",
@@ -454,6 +455,18 @@ if ($needs_restart) {
   exit;
 }
 
+if (exists $commandline{mitigation}) {
+  if ($commandline{mitigation} eq "ok") {
+    $commandline{mitigation} = 0;
+  } elsif ($commandline{mitigation} eq "warning") {
+    $commandline{mitigation} = 1;
+  } elsif ($commandline{mitigation} eq "critical") {
+    $commandline{mitigation} = 2;
+  } elsif ($commandline{mitigation} eq "unknown") {
+    $commandline{mitigation} = 3;
+  }
+}
+
 if (exists $commandline{shell}) {
   # forget what you see here.
   system("/bin/sh");
@@ -551,6 +564,7 @@ my %params = (
     database => $commandline{database},
     datafile => $commandline{datafile},
     offlineok => $commandline{offlineok},
+    mitigation => $commandline{mitigation},
     basis => $commandline{basis},
     selectname => $commandline{name} || $commandline{tablespace} || $commandline{datafile},
     regexp => $commandline{regexp},

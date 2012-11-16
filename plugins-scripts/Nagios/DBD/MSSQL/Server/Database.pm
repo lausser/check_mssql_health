@@ -696,8 +696,10 @@ sub nagios {
       $self->{warning_bytes} = 0;
       $self->{critical_bytes} = 0;
       if ($self->{offline}) {
+        # offlineok hat vorrang
+        $params{mitigation} = $params{offlineok} ? 0 : defined $params{mitigation} ? $params{mitigation} : 1;
         $self->add_nagios(
-            $params{offlineok} ? 0 : 1,
+            $params{mitigation},
             sprintf("database %s is offline", $self->{name})
         );
       } elsif ($params{units} eq "%") {
@@ -798,7 +800,7 @@ sub nagios {
             $self->{name}); 
       } else {
         if (! defined $self->{backup_age}) { 
-          $self->add_nagios_critical(sprintf "%s%s was never backed up",
+          $self->add_nagios(defined $params{mitigation} ? $params{mitigation} : 2, sprintf "%s%s was never backed up",
               $log, $self->{name}); 
           $self->{backup_age} = 0;
           $self->{backup_duration} = 0;
