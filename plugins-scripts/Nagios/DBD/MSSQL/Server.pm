@@ -1353,7 +1353,10 @@ sub fetchrow_array {
   *STDERR = *SAVEERR;
   $self->{errstr} = join("\n", (split(/\n/, $self->{errstr}), $stderrvar)) if $stderrvar;
   if ($@) {
-    $self->debug(sprintf "bumm %s", $@);
+    $self->trace(sprintf "bumm %s", $@);
+  }
+  if ($stderrvar) {
+    $self->trace(sprintf "stderr %s", $self->{errstr}) ;
   }
   if (-f "/tmp/check_mssql_health_simulation/".$self->{mode}) {
     my $simulation = do { local (@ARGV, $/) = 
@@ -1402,8 +1405,11 @@ sub fetchall_array {
   *STDERR = *SAVEERR;
   $self->{errstr} = join("\n", (split(/\n/, $self->{errstr}), $stderrvar)) if $stderrvar;
   if ($@) {
-    $self->debug(sprintf "bumm %s", $@);
+    $self->trace(sprintf "bumm %s", $@);
     $rows = [];
+  }
+  if ($stderrvar) {
+    $self->trace(sprintf "stderr %s", $self->{errstr}) ;
   }
   if (-f "/tmp/check_mssql_health_simulation/".$self->{mode}) {
     my $simulation = do { local (@ARGV, $/) = 

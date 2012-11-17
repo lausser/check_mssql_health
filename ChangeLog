@@ -4,6 +4,7 @@
 
 1.5.15 2012-11-16
 - add parameter mitigation (which can reduce errorlevels for offline databases or dbs which were never backed up)
+- tracedebug ouputs a bit more information now 
 
 1.5.14 2012-11-07
 - database-free can now handle offline databases 
