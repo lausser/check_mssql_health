@@ -380,6 +380,8 @@ sub new {
     state_desc => lc $params{state_desc},
     collation_name => $params{collation_name},
     recovery_model => $params{recovery_model},
+    offline => 0,
+    accessible => 1,
   };
   bless $self, $class;
   $self->init(%params);
@@ -564,6 +566,11 @@ sub init {
           $self->{allocated_mb} = 0;
           $self->{max_mb} = 1;
           $self->{used_mb} = 0;
+        } elsif ($self->{handle}->{errstr} =~ /is not able to access the database/i) {
+          $self->{accessible} = 0;
+          $self->{allocated_mb} = 0;
+          $self->{max_mb} = 1;
+          $self->{used_mb} = 0;
         }
       } else {
         my $sql = q{
@@ -701,6 +708,11 @@ sub nagios {
         $self->add_nagios(
             $params{mitigation},
             sprintf("database %s is offline", $self->{name})
+        );
+      } elsif (! $self->{accessible}) {
+        $self->add_nagios(
+            defined $params{mitigation} ? $params{mitigation} : 1, 
+            sprintf("insufficient privileges to access %s", $self->{name})
         );
       } elsif ($params{units} eq "%") {
         $self->add_nagios(

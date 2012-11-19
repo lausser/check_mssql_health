@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.15.1 2012-11-19
+- catch a "insufficient-rights"-error-message
+
 1.5.15 2012-11-16
 - add parameter mitigation (which can reduce errorlevels for offline databases or dbs which were never backed up)
 - tracedebug ouputs a bit more information now 
