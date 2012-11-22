@@ -720,7 +720,7 @@ sub nagios {
             defined $params{mitigation} ? $params{mitigation} : 1, 
             sprintf("insufficient privileges to access %s", $self->{name})
         );
-      } elsif (! $self->{other_error}) {
+      } elsif ($self->{other_error}) {
         $self->add_nagios(
             defined $params{mitigation} ? $params{mitigation} : 1, 
             sprintf("error accessing %s: %s", $self->{name}, $self->{other_error})
