@@ -382,6 +382,7 @@ sub new {
     recovery_model => $params{recovery_model},
     offline => 0,
     accessible => 1,
+    other_error => 0,
   };
   bless $self, $class;
   $self->init(%params);
@@ -571,6 +572,11 @@ sub init {
           $self->{allocated_mb} = 0;
           $self->{max_mb} = 1;
           $self->{used_mb} = 0;
+        } elsif ($self->{handle}->{errstr}) {
+          $self->{allocated_mb} = 0;
+          $self->{max_mb} = 1;
+          $self->{used_mb} = 0;
+          $self->{other_error} = $self->{handle}->{errstr};
         }
       } else {
         my $sql = q{
@@ -713,6 +719,11 @@ sub nagios {
         $self->add_nagios(
             defined $params{mitigation} ? $params{mitigation} : 1, 
             sprintf("insufficient privileges to access %s", $self->{name})
+        );
+      } elsif (! $self->{other_error}) {
+        $self->add_nagios(
+            defined $params{mitigation} ? $params{mitigation} : 1, 
+            sprintf("error accessing %s: %s", $self->{name}, $self->{other_error})
         );
       } elsif ($params{units} eq "%") {
         $self->add_nagios(
