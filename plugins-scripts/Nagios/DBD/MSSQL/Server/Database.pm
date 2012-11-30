@@ -392,6 +392,8 @@ sub new {
 sub init {
   my $self = shift;
   my %params = @_;
+  # clear errors (offline, missing privileges...) from other databases
+  $self->{handle}->{errstr} = "";
   $self->init_nagios();
   $self->set_local_db_thresholds(%params);
   if ($params{mode} =~ /server::database::datafile/) {

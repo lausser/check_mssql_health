@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.15.3 2012-11.30
+- fixed a bug in database-free (where the offline state of 1 db was propagated to some others)
+
 1.5.15.2 2012-11-22
 - catch generic error-messages
 
