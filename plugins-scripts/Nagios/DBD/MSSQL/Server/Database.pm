@@ -49,6 +49,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
       }
       foreach (@databaseresult) {
         my ($name, $id, $state) = @{$_};
+        next if $params{notemp} && $name eq "tempdb";
         next if $params{database} && $name ne $params{database};
         if ($params{regexp}) {
           next if $params{selectname} && $name !~ /$params{selectname}/;

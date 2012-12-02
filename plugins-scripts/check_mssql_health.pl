@@ -135,6 +135,10 @@ my @modes = (
   ['server::sql',
       'sql', undef,
       'any sql command returning a single number' ],
+  ['server::sqlruntime',
+      'sql-runtime', undef,
+      'the time an sql command needs to run' ],
+
   ['server::database::listdatabases',
       'list-databases', undef,
       'convenience function which lists all databases' ],
@@ -209,6 +213,10 @@ EOUS
   Database-related modes check all databases in one run by default.
   If only a single database should be checked, use the --name parameter.
   The same applies to datafile-related modes.
+  If an additional --regexp is added, --name's argument will be interpreted
+  as a regular expression.
+  The parameter --mitigation lets you classify the severity of an offline
+  tablespace. 
 
   In mode sql you can url-encode the statement so you will not have to mess
   around with special characters in your Nagios service definitions.
@@ -288,9 +296,10 @@ my @params = (
     "tablespace=s",
     "database=s",
     "datafile=s",
+    "waitevent=s",
     "offlineok",
     "mitigation=s",
-    "waitevent=s",
+    "notemp",
     "name=s",
     "name2=s",
     "regexp",
@@ -566,6 +575,9 @@ my %params = (
     offlineok => $commandline{offlineok},
     mitigation => $commandline{mitigation},
     basis => $commandline{basis},
+    offlineok => $commandline{offlineok},
+    mitigation => $commandline{mitigation},
+    notemp => $commandline{notemp},
     selectname => $commandline{name} || $commandline{tablespace} || $commandline{datafile},
     regexp => $commandline{regexp},
     name => $commandline{name},
