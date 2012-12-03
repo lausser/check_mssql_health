@@ -537,6 +537,16 @@ sub init {
         #$sql =~ s/\[\?\]/$self->{name}/g;
         $sql =~ s/\?/$self->{name}/g;
         $self->{used_mb} = $self->{handle}->fetchrow_array($sql);
+        my $retries = 0;
+        while ($retries < 10 && $self->{handle}->{errstr} =~ /was deadlocked .* victim/i) {
+          # Sachen gibt's.... DBD::Sybase::st execute failed: Server message number=1205 severity=13 state=56 line=2 server=AUDIINSV0665 text=Transaction (Process ID 173) was deadlocked on lock resources with another process and has been chosen as the deadlock victim. Rerun the transaction.
+          sleep 0.1;
+          $self->trace(sprintf
+              "%s sysindexes query was a deadlock victim. retry",
+              $self->{name});
+          $self->{used_mb} = $self->{handle}->fetchrow_array($sql);
+          $retries++;
+        }
       } else {
         my $sql = q{
             SELECT 
@@ -549,6 +559,15 @@ sub init {
         #$sql =~ s/\[\?\]/$self->{name}/g;
         $sql =~ s/\?/$self->{name}/g;
         $self->{used_mb} = $self->{handle}->fetchrow_array($sql);
+      }
+      if (exists $self->{used_mb} && ! defined $self->{used_mb}) {
+        # exists = Query ist gelaufen
+        # ! defined = hat NULL geliefert (Ja, gibt's. ich habe es gerade
+        # mit eigenen Augen gesehen)
+        $self->{used_mb} = 0;
+        $self->trace(sprintf "%s uses no indices", $self->{name});
+        $self->trace(sprintf "also error %s", $self->{handle}->{errstr}) if $self->{handle}->{errstr};
+
       }
       my @fileresult = ();
       if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
@@ -579,7 +598,11 @@ sub init {
           $self->{allocated_mb} = 0;
           $self->{max_mb} = 1;
           $self->{used_mb} = 0;
-          $self->{other_error} = $self->{handle}->{errstr};
+          if ($self->{handle}->{errstr} =~ /Message String: ([\w ]+)/) {
+            $self->{other_error} = $1;
+          } else {
+            $self->{other_error} = $self->{handle}->{errstr};
+          }
         }
       } else {
         my $sql = q{
