@@ -444,17 +444,18 @@ sub init {
     ###################################################################################
 
     if (DBD::MSSQL::Server::return_first_server()->{product} eq "ASE") {
-      my($database_name, $database_size, $reserved, $data, $index_size, $unused) =
+      my $mb = 1024 * 1024;
+      #
+      # 
+      my($db_name, $db_size, $db_reserved, $db_data, $db_index_size, $db_unused) =
            $params{handle}->fetchrow_array(
           "USE ".$self->{name}."\nEXEC sp_spaceused"
       );
-      #printf "database_name %s\ndatabase_size %s\nreserved %s\ndata %s\nindex_size %s\nunused %s\n",
-      #    $database_name, $database_size, $reserved, $data, $index_size, $unused;
-      if (! $database_name) {
-        #if (exists $params{handle}->{errrow}) {
-        #  foreach (@{$params{handle}->{errrow}}) {
-        #    $self->add_nagios_unknown($_);
-        #  }
+      my($log_name, $log_total_pages, $log_free_pages, $log_used_pages, $log_reserved_pages) =
+           $params{handle}->fetchrow_array(
+          "USE ".$self->{name}."\nEXEC sp_spaceused syslogs"
+      );
+      if (! $db_name) {
         if ($params{handle}->{errstr}) {
           foreach (split(/\n/, $params{handle}->{errstr})) {
             $self->add_nagios_unknown($_);
@@ -463,21 +464,56 @@ sub init {
           $self->add_nagios_unknown("unknown error in sp_spaceused");
         }
       } else {
-        $database_size =~ /([\d\.]+)\s*([GMKB]+)/;
+        $db_size =~ /([\d\.]+)\s*([GMKB]+)/;
         $self->{max_mb} = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
-        $reserved =~ /([\d\.]+)\s*([GMKB]+)/;
+        $db_reserved =~ /([\d\.]+)\s*([GMKB]+)/;
         $self->{allocated_mb} = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
-        $data =~ /([\d\.]+)\s*([GMKB]+)/;
+        $db_data =~ /([\d\.]+)\s*([GMKB]+)/;
         my $data_used = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
-        $index_size =~ /([\d\.]+)\s*([GMKB]+)/;
+        $db_index_size =~ /([\d\.]+)\s*([GMKB]+)/;
         my $index_used = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+        $db_unused =~ /([\d\.]+)\s*([GMKB]+)/;
+        my $unused_used = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+        #
+        $self->{db_database_size} = $self->{max_mb};
+        $self->{db_reserved} = $self->{allocated_mb};
+        $self->{db_data} = $data_used;
+        $self->{db_index_size} = $index_used;
+        $self->{db_unused} = $unused_used;
+        $self->{log_total_mb} = $log_total_pages * 2048 / $mb;
+        $self->{log_free_mb} = $log_free_pages * 2048 / $mb;
+        $self->{log_used_mb} = $log_used_pages * 2048 / $mb;
+        $self->{log_reserved_mb} = $log_reserved_pages * 2048 / $mb;
+        #
+        $self->{db_total} = $self->{max_mb} - $self->{log_total_mb};
+        $self->{db_unreserved} = $self->{db_total} - $self->{db_data} - $self->{db_index_size} - $self->{db_unused};
+        $self->{db_data_percent} = 100 * $self->{db_data} / $self->{db_total};
+        $self->{db_indexes_percent} = 100 * $self->{db_index_size} / $self->{db_total};
+        $self->{db_unused_percent} = 100 * $self->{db_unused} / $self->{db_total};
+        $self->{db_unreserved_percent} = 100 * $self->{db_unreserved} / $self->{db_total};
+        #
+        $self->{log_unused} = $self->{log_total_mb} - $self->{log_used_mb};
+        $self->{log_used_percent} = 100 * $self->{log_used_mb} / $self->{log_total_mb};
+        $self->{log_unused_percent} = 100 * ($self->{log_total_mb} - $self->{log_used_mb}) / $self->{log_total_mb};
+        #
+        # wichtig: log steht _nicht_ fuer daten zur verfuegung
+        $self->{max_mb} = $self->{db_database_size} - $self->{log_total_mb};
+        #
         $self->{used_mb} = $data_used + $index_used;
-        $unused =~ /([\d\.]+)\s*([GMKB]+)/;
         $self->{free_mb} = $self->{max_mb} - $self->{used_mb};
         $self->{free_percent} = 100 * $self->{free_mb} / $self->{max_mb};
         $self->{allocated_percent} = 100 * $self->{allocated_mb} / $self->{max_mb};
         $self->{estimated} = 1;
         # see also....sp_helpdb [db] and sp_helpdevice. ex. model belongs to device master
+
+        $self->trace(sprintf "Data Space Usage ---------------------");
+        $self->trace(sprintf "Data(%.2f%%) %.2f MB", $self->{db_data_percent}, $self->{db_data});
+        $self->trace(sprintf "Indexes(%.2f%%) %.2f MB", $self->{db_indexes_percent}, $self->{db_index_size});
+        $self->trace(sprintf "Unused(%.2f%%) %.2f MB", $self->{db_unused_percent}, $self->{db_unused});
+        $self->trace(sprintf "Unreserved(%.2f%%) %.2f MB", $self->{db_unreserved_percent}, $self->{db_unreserved});
+        $self->trace(sprintf "Transaction Log Space Usage ---------------------");
+        $self->trace(sprintf "Used(%.2f%%) %.2f MB", $self->{log_used_percent}, $self->{log_used_mb});
+        $self->trace(sprintf "Unused(%.2f%%) %.2f MB", $self->{log_unused_percent}, $self->{log_unused});
       }
     } else {
       my $calc = {};

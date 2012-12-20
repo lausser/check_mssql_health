@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.17 2012-12-20
+- fixed a bug in database-free for sybase (many thanks to siemens audiologische technik gmbh!!)
+
 1.5.16 2012-11-29
 - fixed a bug in database-free (where the offline state of 1 db was propagated to some others)
 - implemented all sorts of thresholds
