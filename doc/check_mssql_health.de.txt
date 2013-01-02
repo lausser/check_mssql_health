@@ -52,10 +52,20 @@ Modi
 |page-life-expectancy|Durchschnittliche Verweildauer einer Page im Hauptspeicher|0..n (300:, 180:)
 |free-list-stalls|Free List Stalls pro Sekunde|0..n (4, 10)
 |checkpoint-pages|Anzahl der dirty Pages, die pro Sekunde geflushed werden|0..n ()
+|database-online|Prüft, ob eine Datenbank online ist und Verbindungen akzeptiert|-
 |database-free|Freier Speicherplatz in einer Datenbank|0%..100% (5%, 2%)
 |database-backup-age|Verstrichene Zeit seit dem letzten Backup einer Datenbank (in Stunden). Die Performancedaten beinhalten auch die Dauer des Backups (in Minuten).|0..n
 |database-logbackup-age|Verstrichene Zeit seit dem letzten Backup der Logs einer Datenbank (in Stunden). Die Performancedaten beinhalten auch die Dauer des Backups (in Minuten).|0..n
+|database-file-auto-growths|Anzahl der File Auto Grow Events (Data oder Log) während der letzten <n> Minuten (--lookback)|0..n (1, 5)
+|database-logfile-auto-growths|Anzahl der Data File Auto Grow Events während der letzten <n> Minuten (--lookback)|0..n (1, 5)
+|database-datafile-auto-growths|Anzahl der Log File Auto Grow Events während der letzten <n> Minuten (--lookback)|0..n (1, 5)
+|database-file-auto-shrinks|Anzahl der File Auto Shrink Events (Data oder Log) während der letzten <n> Minuten (--lookback)|0..n (1, 5)
+|database-logfile-auto-shrinks|Anzahl der Data File Auto Shrink Events während der letzten <n> Minuten (--lookback)|0..n (1, 5)
+|database-datafile-auto-shrinks|Anzahl der Log File Auto Shrink Events während der letzten <n> Minuten (--lookback)|0..n (1, 5)
+|database-file-dbcc-shrinks|Anzahl der DBCC File Shrink Events (Data oder Log) während der letzten <n> Minuten (--lookback)|0..n (1, 5)
+|failed-jobs|Anzahl der fehlgeschlagenen Jobs während der letzten <n> Minuten (--lookback)|0..n (1, 5)
 |sql|Ergebnis eines beliebigen SQL-Befehls, der eine Zahl zurückliefert. Der Befehl selbst wird mit dem Parameter --name übergeben. Ein Label für Performncedaten kann mit dem Parameter --name2 übergeben werden. Mit dem Parameter --units kann die Ausgabe um Einheiten ergänzt werden (%, c, s, MB, GB,.. Wenn der SQL-Befehl Sonder- und Leerzeichen enthält, kann er mit dem mode encode zuerst encodiert werden.|0..n
+|sql-runtime|Laufzeit eines beliebigen SQL-Befehls in Sekunden. Der Befehl selbst wird mit dem Parameter --name übergeben.|0..n (1, 5)
 |list-databases|Gibt eine Liste aller Datenbanken aus|-
 |list-locks|Gibt eine Liste aller Locks aus|-
 |====

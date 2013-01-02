@@ -52,10 +52,20 @@ Modi
 |page-life-expectancy|Average time a page stays in main memory|0..n (300:, 180:)
 |free-list-stalls|Free List Stalls per second|0..n (4, 10)
 |checkpoint-pages|Number of Flushed Dirty Pages per second|0..n ()
+|database-online|Prüft, ob eine Datenbank online ist und Verbindungen akzeptiert|-
 |database-free|Free space in a database (Default is percent, but –units can be used also). You can select a single database with the name parameter|0%..100% (5%, 2%)
 |database-backup-age|Elapsed time since a database was last backupped (in hours). The performancedata also cover the time needed for the backup (in minutes)|0..n
 |database-logbackup-age|Elapsed time since a database log was last backupped (in hours). The performancedata also cover the time needed for the backup (in minutes)|0..n
+|database-file-auto-growths|The number of File Auto Grow events (either data or log) in the last <n> minutes (use --lookback)|0..n (1, 5)
+|database-logfile-auto-growths|The number of Log File Auto Grow events in the last <n> minutes (use --lookback)|0..n (1, 5)
+|database-datafile-auto-growths|The number of Data File Auto Grow events in the last <n> minutes (use --lookback)|0..n (1, 5)
+|database-file-auto-shrinks|The number of File Auto Shrink events (either data or log) in the last <n> minutes (use --lookback)|0..n (1, 5)
+|database-logfile-auto-shrinks|The number of Log File Auto Shrink events in the last <n> minutes (use --lookback)|0..n (1, 5)
+|database-datafile-auto-shrinks|The number of Data File Auto Shrink events in the last <n> minutes (use --lookback)|0..n (1, 5)
+|database-file-dbcc-shrinks|The number of DBCC File Shrink events (either data or log) in the last <n> minutes (use --lookback)|0..n (1, 5)
+|failed-jobs|The number of jobs which did not exit successful in the last <n> minutes (use --lookback)|0..n (1, 5)
 |sql|Result of a user-defined SQL statement, which returns a numerical value. The statement is passed to the plugin as an argument to the –sql parameter. A label for the performancedata can be defined with the –name2 parameter. A unit can be appended by using –units. If the SQL statement contains special characters, it is recommended to encode it first by calling check_mssql_health with the –encode parameter and sending the statement to STDIN|0..n
+|sql-runtime|Runtime of a custom sql statement in seconds|0..n (1, 5)
 |list-databases|Returns a list of all databases|-
 |list-locks|Returns a list of all locks|-
 |====
