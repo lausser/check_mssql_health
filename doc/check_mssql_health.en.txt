@@ -1,0 +1,379 @@
+Description
+-----------
+
+check_mssql_health is a plugin, which is used to monitor different parameters of a MS SQL server.
+
+Documentation
+-------------
+
+Command line parameters
+~~~~~~~~~~~~~~~~~~~~~~~
+
+* *--hostname <hostname>* The database server
+* *--username <username>* The database user
+* *--password <password>* The database passwort
+* *--port <port>* The port, where the server listens (Default: 1433)
+* *--server <server>* An alternative to hostname+port. <server> will be looked up in the file freetds.conf.
+* *--mode <modus>* With the mode-parameter you tell the plugin what you want it to do. See list below for possible values.
+* *--name <objectname>* Several checks can be limited to a single object (e.g. a specific database). It is also used for mode=sql. (See the examples)
+* *--name2 <string>* If you use --mode=sql, the SQL-statement will be shown in the plugin output and the performance data (which looks ugly). The parameter name2 can be used to provide a used-defined string.
+* *--warning <range>* Values outside this range result in a WARNING.
+* *--critical <range>* Values outside this range result in a CRITICAL.
+* *--environment <variable>=<wert>* It is possible to set environment variables at runtime with htis parameter. It can be used multiple times.
+* *--method <connectmethode>* With this parameter you tell the plugin, which connection method it should use. Known values are: dbi for the perl module DBD::Sybase (default) and sqlrelay for the SQLRelay proxy..
+* *--units <%|KB|MB|GB>* This parameter adds units to the performance, when using mode=sql
+* *--dbthresholds* With this parameter thresholds are read from the database table check_mssql_health_thresholds
+
+
+
+Modi
+~~~~
+
+[role="nagiosplugins"]
+|====
+| *Keyword* | *Meaning* | *Threshold range* 
+|connection-time|Measures how long it takes to login|0..n Sek (1, 5)
+|connected-users|Number of connected users|0..n (50, 80)
+|cpu-busy|CPU Busy Time|0%..100% (80, 90)
+|io-busy|IO Busy Time|0%..100% (80, 90)
+|full-scans|Number of full table scans per second|0..n (100, 500)
+|transactions|Number of transactions per second|0..n (10000, 50000)
+|batch-requests|Number of batch requests per second|0..n (100, 200)
+|latches-waits|Number of Latch-Requests per second, which could not be fulfilled|0..n (10, 50)
+|latches-wait-time|Average time a Latch-Request had to wait until it was granted|0..n ms (1, 5)
+|locks-waits|Number of Lock-Requests per second, which could not be satisfied|0..n (100, 500)
+|locks-timeouts|Number of Lock-Requests per second, which resulted in a timeout|0..n (1, 5)
+|locks-deadlocks|Number of Deadlocks per second|0..n (1, 5)
+|sql-recompilations|Number of Re-Compilations per second|0..n (1, 10)
+|sql-initcompilations|Number of Initial Compilations per second|0..n (100, 200)
+|total-server-memory|The main memory reserved for the SQL Server|0..n (nearly1G, 1G)
+|mem-pool-data-buffer-hit-ratio|Data Buffer Cache Hit Ratio|0%..100% (90, 80:)
+|lazy-writes|Number of Lazy Writes per second|0..n (20, 40)
+|page-life-expectancy|Average time a page stays in main memory|0..n (300:, 180:)
+|free-list-stalls|Free List Stalls per second|0..n (4, 10)
+|checkpoint-pages|Number of Flushed Dirty Pages per second|0..n ()
+|database-free|Free space in a database (Default is percent, but –units can be used also). You can select a single database with the name parameter|0%..100% (5%, 2%)
+|database-backup-age|Elapsed time since a database was last backupped (in hours). The performancedata also cover the time needed for the backup (in minutes)|0..n
+|database-logbackup-age|Elapsed time since a database log was last backupped (in hours). The performancedata also cover the time needed for the backup (in minutes)|0..n
+|sql|Result of a user-defined SQL statement, which returns a numerical value. The statement is passed to the plugin as an argument to the –sql parameter. A label for the performancedata can be defined with the –name2 parameter. A unit can be appended by using –units. If the SQL statement contains special characters, it is recommended to encode it first by calling check_mssql_health with the –encode parameter and sending the statement to STDIN|0..n
+|list-databases|Returns a list of all databases|-
+|list-locks|Returns a list of all locks|-
+|====
+
+Please keep the Nagios Developer Guidelines in mind, when you use thresholds. + 
+"10" means "Alarm, if > 10" und + 
+"90:" means "Alarm, if < 90"
+
+
+Preparation of the database
+---------------------------
+
+In order for the plugin to operate correctly, a database user with specific privileges is required. + 
+The most simple way is to assign the Nagios-user the role "serveradmin". As an alternative you can use the sa-User for the database connection. Alas, this opens a serious security hole, as the (cleartext) administrator password can be found in the nagios configuration files + 
+Birk Bohne wrote the following script which allows the automated creation of a minimal, yet sufficient privileged monitoring-user.
+
+[source,sql]
+----
+declare @dbname varchar(255)
+declare @check_mssql_health_USER varchar(255)
+declare @check_mssql_health_PASS varchar(255)
+declare @check_mssql_health_ROLE varchar(255)
+declare @source varchar(255)
+declare @options varchar(255)
+declare @backslash int
+
+/*******************************************************************/
+SET @check_mssql_health_USER = '"[Servername|Domainname]\Username"'
+SET @check_mssql_health_PASS = 'Password'
+SET @check_mssql_health_ROLE = 'Rolename'
+/*******************************************************************
+
+PLEASE CHANGE THE ABOVE VALUES ACCORDING TO YOUR REQUIREMENTS
+
+- Example for Windows authentication:
+  SET @check_mssql_health_USER = '"[Servername|Domainname]\Username"'
+  SET @check_mssql_health_ROLE = 'Rolename'
+
+- Example for SQL Server authentication:
+  SET @check_mssql_health_USER = 'Username'
+  SET @check_mssql_health_PASS = 'Password'
+  SET @check_mssql_health_ROLE = 'Rolename'
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+It is strongly recommended to use Windows authentication. Otherwise
+you will get no reliable results for database usage.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+*********** NO NEED TO CHANGE ANYTHING BELOW THIS LINE *************/
+
+SET @options = 'DEFAULT_DATABASE=MASTER, DEFAULT_LANGUAGE=English'
+SET @backslash = (SELECT CHARINDEX('\', @check_mssql_health_USER))
+IF @backslash > 0
+  BEGIN
+    SET @source = ' FROM WINDOWS'
+    SET @options = ' WITH ' + @options
+  END
+ELSE
+  BEGIN
+    SET @source = ''
+    SET @options = ' WITH PASSWORD=''' + @check_mssql_health_PASS + ''',' + @options
+  END
+
+PRINT 'create Nagios plugin user ' + @check_mssql_health_USER
+EXEC ('CREATE LOGIN ' + @check_mssql_health_USER + @source + @options)
+EXEC ('USE MASTER GRANT VIEW SERVER STATE TO ' + @check_mssql_health_USER)
+PRINT 'User ' + @check_mssql_health_USER + ' created.'
+PRINT ''
+
+declare dblist cursor for
+  select name from sysdatabases WHERE name NOT IN ('master', 'tempdb', 'msdb') open dblist
+    fetch next from dblist into @dbname
+    while @@fetch_status = 0 begin
+      EXEC ('USE [' + @dbname + '] print ''Grant permissions in the db '' + ''"'' + DB_NAME() + ''"''')
+      EXEC ('USE [' + @dbname + '] CREATE ROLE ' + @check_mssql_health_ROLE)
+      EXEC ('USE [' + @dbname + '] GRANT EXECUTE TO ' + @check_mssql_health_ROLE)
+      EXEC ('USE [' + @dbname + '] GRANT VIEW DATABASE STATE TO ' + @check_mssql_health_ROLE)
+      EXEC ('USE [' + @dbname + '] GRANT VIEW DEFINITION TO ' + @check_mssql_health_ROLE)
+      EXEC ('USE [' + @dbname + '] CREATE USER ' + @check_mssql_health_USER + ' FOR LOGIN ' + @check_mssql_health_USER)
+      EXEC ('USE [' + @dbname + '] EXEC sp_addrolemember ' + @check_mssql_health_ROLE + ' , ' + @check_mssql_health_USER)
+      EXEC ('USE [' + @dbname + '] print ''Permissions in the db '' + ''"'' + DB_NAME() + ''" granted.''')
+      fetch next from dblist into @dbname
+    end
+close dblist
+deallocate dblist
+----
+
+Please keep in mind that check_mssql_health's functionality is limited when using SQL Server authentication. *This method is strongly discouraged* . Normally there is already a Nagios-(Windows-)-user which can be used for the Windows authentication method. 
+
+Another script from the same author removes the monitoring user from the database.
+
+[source,sql]
+----
+declare @dbname varchar(255)
+declare @check_mssql_health_USER varchar(255)
+declare @check_mssql_health_ROLE varchar(255)
+
+SET @check_mssql_health_USER = '"[Servername|Domainname]\Username"'
+SET @check_mssql_health_ROLE = 'Rolename'
+
+declare dblist cursor for
+  select name from sysdatabases WHERE name NOT IN ('master', 'tempdb', 'msdb') open dblist
+    fetch next from dblist into @dbname
+    while @@fetch_status = 0 begin
+      EXEC ('USE [' + @dbname + '] print ''Revoke permissions in the db '' + ''"'' + DB_NAME() + ''"''')
+      EXEC ('USE [' + @dbname + '] EXEC sp_droprolemember ' + @check_mssql_health_ROLE + ' , ' + @check_mssql_health_USER)
+      EXEC ('USE [' + @dbname + '] DROP USER ' + @check_mssql_health_USER)
+      EXEC ('USE [' + @dbname + '] REVOKE VIEW DEFINITION TO ' + @check_mssql_health_ROLE)
+      EXEC ('USE [' + @dbname + '] REVOKE VIEW DATABASE STATE TO ' + @check_mssql_health_ROLE)
+      EXEC ('USE [' + @dbname + '] REVOKE EXECUTE TO ' + @check_mssql_health_ROLE)
+      EXEC ('USE [' + @dbname + '] DROP ROLE ' + @check_mssql_health_ROLE)
+      EXEC ('USE [' + @dbname + '] print ''Permissions in the db '' + ''"'' + DB_NAME() + ''" revoked.''')
+      fetch next from dblist into @dbname
+    end
+close dblist
+deallocate dblist
+
+PRINT ''
+PRINT 'drop Nagios plugin user ' + @check_mssql_health_USER
+EXEC ('USE MASTER REVOKE VIEW SERVER STATE TO ' + @check_mssql_health_USER)
+EXEC ('DROP LOGIN ' + @check_mssql_health_USER)
+PRINT 'User ' + @check_mssql_health_USER + ' dropped.'
+----
+Many thanks to Birk Bohne for the excellent scripts.
+
+
+Examples
+--------
+
+[source,txt]
+----
+nagsrv$ check_mssql_health --mode mem-pool-data-buffer-hit-ratio
+CRITICAL - buffer cache hit ratio is 71.21% | buffer_cache_hit_ratio=71.21%;90:;80:
+
+nagsrv$ check_mssql_health --mode batch-requests
+OK - 9.00 batch requests / sec | batch_requests_per_sec=9.00;100;200
+
+nagsrv$ check_mssql_health --mode full-scans
+OK - 6.14 full table scans / sec | full_scans_per_sec=6.14;100;500
+
+nagsrv$ check_mssql_health --mode cpu-busy
+OK - CPU busy 55.00% | cpu_busy=55.00;80;90
+
+nagsrv$ check_mssql_health --mode database-free --name AdventureWorks
+OK - database AdventureWorks has 21.59% free space left | 'db_adventureworks_free_pct'=21.59%;5:;2: 'db_adventureworks_free'=703MB;4768371582.03:;1907348632.81:;0;95367431640.62
+
+nagsrv$ check_mssql_health --mode database-free --name AdventureWorks \
+--warning 700: --critical 200: --units MB
+WARNING - database AdventureWorks has 694.12MB free space left | 'db_adventureworks_free_pct'=21.31%;0.00:;0.00: 'db_adventureworks_free'=694.12MB;700.00:;200.00:;0;95367431640.62
+
+nagsrv$ check_mssql_health --mode page-life-expectancy
+OK - page life expectancy is 8950 seconds | page_life_expectancy=8950;300:;180:
+
+nagsrv$ check_mssql_health --mode database-backup-age --name AHLE_WORSCHT \
+--warning 72 --critical 120
+WARNING - AHLE_WORSCHT backupped 102h ago | 'AHLE_WORSCHT_bck_age'=102;72;120 'AHLE_WORSCHT_bck_time'=12
+----
+
+
+Using environment variables
+---------------------------
+
+You can omit the parameters --hostname, --port (or the alternative --server), --username und --password completely, if you pass the respective data via environment variables. Since version 3.x of Nagios you can add your own attributes to service definittions (custom object variables). They appear as environment variables during the runtime of a plugin.
+
+The environment variables are:
+
+* *NAGIOS__SERVICEMSSQL_HOST* (_mssql_host in the servicedefinition)
+* *NAGIOS__SERVICEMSSQL_USER* (_mssql_user in the servicedefinition)
+* *NAGIOS__SERVICEMSSQL_PASS* (_mssql_pass in the servicedefinition)
+* *NAGIOS__SERVICEMSSQL_PORT* (_mssql_port in the servicedefinition)
+* *NAGIOS__SERVICEMSSQL_SERVER* (_mssql_server in the servicedefinition)
+
+
+Installation
+------------
+
+This Plugin requires the installation of the *Perl-module DBD::Sybase*.
+
+After you unpacked the archive you have to execute ./configure aufgerufen. With ./configure --help you get a list of possible options.
+
+* *--prefix=BASEDIRECTORY* The directory where check_mssql_health will be installed (default: /usr/local/nagios)
+* *--with-nagios-user=SOMEUSER* The user who owns check_mysql_health sein. (default: nagios)
+* *--with-nagios-group=SOMEGROUP* The group which owns check_mysql_health Binaries. (default: nagios)
+* *--with-perl=PATHTOPERL* The path to a perl interpreter if you want to use a non-standard one. (default: the perl found in $PATH)
+
+
+Security advice
+---------------
+
+The Perl-module DBD::Sybase is based on an installation of FreeTDS auf. This package is responsible for the communication with the database server. The default settings use protocol version 4.x which results in cleartext passwords sent over the wire. Please do change the following parameter in the file /etc/freetds.conf.
+[source,txt]
+----
+[global]
+# TDS protocol version
+# tds version = 4.2
+tds version = 8.0
+----
+
+
+Instances
+---------
+
+If multiple named instances are listening on the same port of your database server, you need to register them individually in the file /etc/freetds.conf.
+[source,txt]
+----
+[sourcecode language='xml']
+[dbsrv1instance01]
+        host = 192.168.1.19
+        port = 1433
+        instance = instance01 
+
+[dbsrv1instance02]
+        host = 192.168.1.19
+        port = 1433
+        instance = instance02
+----
+
+Now you can address the instances e.g. with *--server dbsrv1instance02* . By using *--host 192.168.1.19 --port 1433* 
+you would reach the Default instance.
+
+
+Download
+--------
+
+http://labs.consol.de/download/shinken-nagios-plugins/check_mssql_health-1.5.18.tar.gz[check_mssql_health-1.5.18.tar.gz]
+
+
+Changelog
+---------
+
+* 1.5.18 2012-01-03
++
+added asciidoc
+
+* 1.5.17 2012-12-20
++
+fixed a bug in database-free for sybase (many thanks to siemens audiologische technik gmbh!!)
+
+* 1.5.16 2012-11-29
++
+fixed a bug in database-free (where the offline state of 1 db was propagated to some others) + 
+implemented all sorts of thresholds + 
+add mode sql-runtime
+
+* 1.5.15.2 2012-11-22
++
+catch generic error-messages
+
+* 1.5.15.1 2012-11-19
++
+catch a "insufficient-rights"-error-message
+
+* 1.5.15 2012-11-16
++
+add parameter mitigation (which can reduce errorlevels for offline databases or dbs which were never backed up) + 
+tracedebug ouputs a bit more information now
+
+* 1.5.14 2012-11-07
++
+database-free can now handle offline databases + 
+add --offlineok + 
+exclude dbs with recovery model simple from database-logbackup-age
+
+* 1.5.13 2012-10-25
++
+add failed-jobs + 
+add database-online
+
+* 1.5.12 2012-10-24
++
+add database-file-auto-growths (and database-logfile-auto-growths, database-datafile-auto-growths) + 
+add database-file-auto-shrinks (and database-logfile-auto-growths, database-datafile-auto-growths) + 
+add database-file-dbcc-shrinks
+
+* 1.5.11 2012-07-05
++
+add selects for cpu-busy to see the return values with -v + 
+add some enhancements writen by Pall Sigurdsson
+
+* 1.5.10 2012-06-28 add mode logbackup-age
+* 1.5.9.3 2012-04-10 bugfix which removes warnings when run under perl 5.14
+* 1.5.9.2 2012-03-15 bugfix in timeout-alarm handling under windows
+* 1.5.9.1 2011-09-19 fix a bug in --currentdb (with a "-" in the database name"). (Thanks Markus Stollwerk)single ticks around the --name argument under Windows CMD will be removed auto matically
+* 1.5.9 2011-08-12 fix a bug in save_state for statefilesdirs with capial letters
+* 1.5.8.4 2011-06-29 fix a bug in sybase chained transaction handling
+* 1.5.8.3 2011-06-03 sites in an OMD (http://omdistro.org)[http://omdistro.org)]environment have now private statefile directoriesfix a bug in extra-optsconection-time, connected-users, database-free and backup-age can be used with sybase ase 15.x servers
+* 2011-01-19 1.5.8.2 nicer error message if a sqlrelay connection fails
+* 2011-01-03 1.5.8.1 Bugfix in mode sql and regexp
+* 2010-12-20 1.5.8mode sql can now have a non-numerical output which is compared to a string/regexpnew parameter --dbthresholdsnew mode report can be used to output only the bad news (short,long,html
+* 2010-10-01 1.5.7 fixed a bug in database-free (too much free space was calculated when more than one datafile of a database was on the same filesystem). (Thanks Juergen Essberger)new parameter extra-opts
+* 2010-08-12 1.5.6 new parameter --dbthresholds. thresholds can now also be deposited in the tablecheck_mssql_health_thresholdsadded --currentdb so that the plugin can connect to a non-default database
+
+--with-mymodules-dyn-dir on the commandline overrides the configure-option of the same name
+* 2010-08 1.5.5 backup-age is now an alias for the "official" database-backup-agecatch the "can't change context to database" error--methodsqlcmd
+* 2009-11-02 1.5.3 Bugfix in database-free (Thanks robbyck). New feature mode=database-backup-age
+* 2009-09-20 1.5.2 Databasenames can now contain special characters (Thanks Hugh Ranalli)
+* 2009-05-26 1.5.1 New parameter --server (Thanks Mark Monahan), Compatibility to SQL Server 2000 (Thanks Mereghretti Stefano)
+* 2009-04-29 1.5.0.1 Bugfix in database-free (Thanks Michael Lübben), Syntax error removed (Thanks Bernd Staudacher), added security advice (Thanks Mathieu Barret)
+* 2009-03-21 1.5 Support of --method sqlrelay. database-free  takes account of the free disk space for databases with unrestricted growth.
+* 2009-03-19 1.2 Support of installations with object_name <> SQLServer (resolves some "unable to aquire..."-messages)
+* 2009-03-11 1.1 first public releaseersion
+
+
+&nbsp;
+Copyright
+---------
+
+Gerhard Laußer
+
+Check_mssql_health is published under the GNU General Public License.
+http://www.gnu.de/documents/gpl.de.html[GPL]
+
+Author
+------
+
+Gerhard Laußer (
+mailto:gerhard.lausser@consol.de[gerhard.lausser@consol.de]
+) will gladly answer your questions.
+// [/lang_en]
+// [lang_de]
+
