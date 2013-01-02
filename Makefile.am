@@ -2,7 +2,7 @@
 
 # find . \( -type d -and -name .svn -and -prune \) -or -type f -exec fromdos -v {} \;
 
-SUBDIRS = plugins-scripts t
+SUBDIRS = plugins-scripts t doc
 EXTRA_DIST = contrib
 
 dist-hook:
