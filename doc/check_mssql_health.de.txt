@@ -287,7 +287,7 @@ Danach adressiert man die Instanzen z.B. mit *--server dbsrv1instance02*. Ansons
 
 Download
 --------
-http://labs.consol.de/download/shinken-nagios-plugins/check_mssql_health-1.5.10.tar.gz[check_mssql_health-1.5.10.tar.gz]
+http://labs.consol.de/download/shinken-nagios-plugins/check_mssql_health-1.5.18.tar.gz[check_mssql_health-1.5.18.tar.gz]
 
 
 Changelog
