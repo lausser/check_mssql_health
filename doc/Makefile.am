@@ -1,6 +1,6 @@
 PLUGIN=check_mssql_health
 
-all: dedoc endoc
+docs: dedoc endoc
 	$(RM) $(PLUGIN).html
 	printf "<!-- [lang_de] -->\n\n" >> $(PLUGIN).html
 	cat $(PLUGIN).de.html >> $(PLUGIN).html
@@ -15,3 +15,8 @@ dedoc:
 
 endoc:
 	asciidoc --unsafe --no-header-footer -a max-width=800 $(PLUGIN).en.txt
+
+clean:
+	$(RM) $(PLUGIN).html
+	$(RM) $(PLUGIN).en.html
+	$(RM) $(PLUGIN).de.html

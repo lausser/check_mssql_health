@@ -11,3 +11,4 @@ dist-hook:
 	find $(distdir) -depth -name .svn -exec rm -rf {} \;
 	find $(distdir) -type f -exec fromdos -v {} \;
 	make
+
