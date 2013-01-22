@@ -485,24 +485,33 @@ sub init {
         $self->{log_used_mb} = $log_used_pages * 2048 / $mb;
         $self->{log_reserved_mb} = $log_reserved_pages * 2048 / $mb;
         #
+
+        # this may happen: $db_size == $log_total_pages (seen with a master db)
+        #                           50MB              50MB
         $self->{db_total} = $self->{max_mb} - $self->{log_total_mb};
-        $self->{db_unreserved} = $self->{db_total} - $self->{db_data} - $self->{db_index_size} - $self->{db_unused};
-        $self->{db_data_percent} = 100 * $self->{db_data} / $self->{db_total};
-        $self->{db_indexes_percent} = 100 * $self->{db_index_size} / $self->{db_total};
-        $self->{db_unused_percent} = 100 * $self->{db_unused} / $self->{db_total};
-        $self->{db_unreserved_percent} = 100 * $self->{db_unreserved} / $self->{db_total};
-        #
-        $self->{log_unused} = $self->{log_total_mb} - $self->{log_used_mb};
-        $self->{log_used_percent} = 100 * $self->{log_used_mb} / $self->{log_total_mb};
-        $self->{log_unused_percent} = 100 * ($self->{log_total_mb} - $self->{log_used_mb}) / $self->{log_total_mb};
-        #
-        # wichtig: log steht _nicht_ fuer daten zur verfuegung
-        $self->{max_mb} = $self->{db_database_size} - $self->{log_total_mb};
-        #
-        $self->{used_mb} = $data_used + $index_used;
-        $self->{free_mb} = $self->{max_mb} - $self->{used_mb};
-        $self->{free_percent} = 100 * $self->{free_mb} / $self->{max_mb};
-        $self->{allocated_percent} = 100 * $self->{allocated_mb} / $self->{max_mb};
+        if ($self->{db_total} != 0) {
+          $self->{db_unreserved} = $self->{db_total} - $self->{db_data} - $self->{db_index_size} - $self->{db_unused};
+          $self->{db_data_percent} = 100 * $self->{db_data} / $self->{db_total};
+          $self->{db_indexes_percent} = 100 * $self->{db_index_size} / $self->{db_total};
+          $self->{db_unused_percent} = 100 * $self->{db_unused} / $self->{db_total};
+          $self->{db_unreserved_percent} = 100 * $self->{db_unreserved} / $self->{db_total};
+          #
+          $self->{log_unused} = $self->{log_total_mb} - $self->{log_used_mb};
+          $self->{log_used_percent} = 100 * $self->{log_used_mb} / $self->{log_total_mb};
+          $self->{log_unused_percent} = 100 * ($self->{log_total_mb} - $self->{log_used_mb}) / $self->{log_total_mb};
+          #
+          # wichtig: log steht _nicht_ fuer daten zur verfuegung
+          $self->{max_mb} = $self->{db_database_size} - $self->{log_total_mb};
+          #
+          $self->{used_mb} = $data_used + $index_used;
+          $self->{free_mb} = $self->{max_mb} - $self->{used_mb};
+          $self->{free_percent} = 100 * $self->{free_mb} / $self->{max_mb};
+          $self->{allocated_percent} = 100 * $self->{allocated_mb} / $self->{max_mb};
+        } else {
+          $self->{free_mb} = 0;
+          $self->{free_percent} = 0;
+          $self->{allocated_percent} = 100;
+        }
         $self->{estimated} = 1;
         # see also....sp_helpdb [db] and sp_helpdevice. ex. model belongs to device master
 

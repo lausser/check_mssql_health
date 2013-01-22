@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.18.1 2013-01-22
+- fixed a bug in sybase database-free
+
 1.5.18 2012-01-03
 - added asciidoc
 
