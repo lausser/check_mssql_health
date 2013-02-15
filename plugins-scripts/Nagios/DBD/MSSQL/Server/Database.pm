@@ -508,6 +508,16 @@ sub init {
           $self->{free_percent} = 100 * $self->{free_mb} / $self->{max_mb};
           $self->{allocated_percent} = 100 * $self->{allocated_mb} / $self->{max_mb};
         } else {
+          $self->{db_unreserved} = 0;
+          $self->{db_data_percent} = 100;
+          $self->{db_indexes_percent} = 0;
+          $self->{db_unused_percent} = 0;
+          $self->{db_unreserved_percent} = 0;
+          #
+          $self->{log_unused} = $self->{log_total_mb} - $self->{log_used_mb};
+          $self->{log_used_percent} = 100 * $self->{log_used_mb} / $self->{log_total_mb};
+          $self->{log_unused_percent} = 100 * ($self->{log_total_mb} - $self->{log_used_mb}) / $self->{log_total_mb};
+          #
           $self->{free_mb} = 0;
           $self->{free_percent} = 0;
           $self->{allocated_percent} = 100;
