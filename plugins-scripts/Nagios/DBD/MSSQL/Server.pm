@@ -94,6 +94,8 @@ sub new {
     } else {
         $self->{dbuser} = $self->{handle}->fetchrow_array(
             q{ SELECT SUSER_NAME() });
+        $self->{maxpagesize} = $self->{handle}->fetchrow_array(
+            q{ SELECT @@MAXPAGESIZE });
     }
     DBD::MSSQL::Server::add_server($self);
     $self->init(%params);

@@ -23,6 +23,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
   sub init_databases {
     my %params = @_;
     my $num_databases = 0;
+    my $cache_db_sizes = {};
     if (($params{mode} =~ /server::database::listdatabases/) ||
         ($params{mode} =~ /server::database::databasefree/) ||
         ($params{mode} =~ /server::database::lastbackup/) ||
@@ -40,6 +41,62 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
           });
         }
       } elsif ($params{product} eq "ASE") {
+        # erst ab 15.x
+        my @sysusageresult = $params{handle}->fetchall_array(q{
+            SELECT
+              db_name(d.dbid) AS db_name,
+              SUM(
+                CASE WHEN u.segmap != 4 
+                     THEN u.size/1048576.*@@maxpagesize 
+                END)
+              AS data_size,
+              SUM(
+                CASE WHEN u.segmap != 4 
+                     THEN size - curunreservedpgs(u.dbid, u.lstart, u.unreservedpgs)
+                END)/1048576.*@@maxpagesize
+              AS data_used,
+              SUM(
+                CASE WHEN u.segmap = 4 
+                     THEN u.size/1048576.*@@maxpagesize
+                END)
+              AS log_size,
+              SUM(
+                CASE WHEN u.segmap = 4
+                     THEN u.size/1048576.*@@maxpagesize
+                END) - lct_admin("logsegment_freepages",d.dbid)/1048576.*@@maxpagesize
+              AS log_used
+              FROM master..sysdatabases d, master..sysusages u
+              WHERE u.dbid = d.dbid AND d.status != 256
+              GROUP BY d.dbid
+              ORDER BY db_name(d.dbid)
+        });
+        foreach (@sysusageresult) {
+          my($db_name, $data_size, $data_used, $log_size, $log_used) = @{$_};
+          $log_size = 0 if ! defined $log_size;
+          $log_used = 0 if ! defined $log_used;
+          $cache_db_sizes->{$db_name} = {
+              'db_name' => $db_name, 
+              'data_size' => $data_size,
+              'data_used' => $data_used,
+              'log_size' => $log_size,
+              'log_used' => $log_used,
+          };
+          $cache_db_sizes->{$db_name}->{data_used_pct} = 100 *
+              $cache_db_sizes->{$db_name}->{data_used} /
+              $cache_db_sizes->{$db_name}->{data_size};
+          $cache_db_sizes->{$db_name}->{log_used_pct} = 
+              $cache_db_sizes->{$db_name}->{log_size} ?
+              100 *
+              $cache_db_sizes->{$db_name}->{log_used} /
+              $cache_db_sizes->{$db_name}->{log_size}
+              : 0;
+          $cache_db_sizes->{$db_name}->{data_free} =
+              $cache_db_sizes->{$db_name}->{data_size} - 
+              $cache_db_sizes->{$db_name}->{data_used};
+          $cache_db_sizes->{$db_name}->{log_free} =
+              $cache_db_sizes->{$db_name}->{log_size} - 
+              $cache_db_sizes->{$db_name}->{log_used};
+        }
         @databaseresult = $params{handle}->fetchall_array(q{
           SELECT name, dbid, status2 FROM master.dbo.sysdatabases
         });
@@ -47,7 +104,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
       if ($params{mode} =~ /server::database::transactions/) {
         push(@databaseresult, [ '_Total', 0 ]);
       }
-      foreach (@databaseresult) {
+      foreach (sort {$a->[0] cmp $b->[0]} @databaseresult) {
         my ($name, $id, $state) = @{$_};
         next if $params{notemp} && $name eq "tempdb";
         next if $params{database} && $name ne $params{database};
@@ -60,6 +117,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         $thisparams{name} = $name;
         $thisparams{id} = $id;
         $thisparams{state} = $state;
+        $thisparams{cache_db_sizes} = $cache_db_sizes;
         my $database = DBD::MSSQL::Server::Database->new(
             %thisparams);
         add_database($database);
@@ -444,95 +502,78 @@ sub init {
     ###################################################################################
 
     if (DBD::MSSQL::Server::return_first_server()->{product} eq "ASE") {
+      my $cache_db_sizes = $params{cache_db_sizes}->{$self->{name}},
+      my $maxpagesize = DBD::MSSQL::Server::return_first_server()->{maxpagesize};
       my $mb = 1024 * 1024;
-      #
-      # 
-      my($db_name, $db_size, $db_reserved, $db_data, $db_index_size, $db_unused) =
+      my($sp_db_name, $sp_db_size, $sp_db_reserved, $sp_db_data, $sp_db_index, $sp_db_unused) =
            $params{handle}->fetchrow_array(
           "USE ".$self->{name}."\nEXEC sp_spaceused"
       );
-      my($log_name, $log_total_pages, $log_free_pages, $log_used_pages, $log_reserved_pages) =
-           $params{handle}->fetchrow_array(
-          "USE ".$self->{name}."\nEXEC sp_spaceused syslogs"
+      $sp_db_reserved =~ /([\d\.]+)\s*([GMKB]+)/;
+      $sp_db_reserved = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+      $sp_db_data =~ /([\d\.]+)\s*([GMKB]+)/;
+      $sp_db_data = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+      $sp_db_index =~ /([\d\.]+)\s*([GMKB]+)/;
+      $sp_db_index = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+      $sp_db_unused =~ /([\d\.]+)\s*([GMKB]+)/;
+      $sp_db_unused = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
+      my($sp_log_name, $sp_log_total_pages, $sp_log_free_pages, $sp_log_used_pages, $sp_log_reserved_pages) =
+          # returns number of logical pages
+          $params{handle}->fetchrow_array(
+        "USE ".$self->{name}."\nEXEC sp_spaceused syslogs"
       );
-      if (! $db_name) {
-        if ($params{handle}->{errstr}) {
-          foreach (split(/\n/, $params{handle}->{errstr})) {
-            $self->add_nagios_unknown($_);
-          }
-        } else {
-          $self->add_nagios_unknown("unknown error in sp_spaceused");
+      $sp_log_total_pages = $sp_log_total_pages * $maxpagesize / $mb;  # ! name is _pages, but unit is mb
+      $sp_log_free_pages = $sp_log_free_pages * $maxpagesize / $mb;
+      $sp_log_used_pages = $sp_log_used_pages * $maxpagesize / $mb;
+      $sp_log_reserved_pages = $sp_log_reserved_pages * $maxpagesize / $mb;
+
+      my $unreserved = $cache_db_sizes->{data_size} - $sp_db_reserved;
+      my $reserved = $sp_db_reserved;
+      my $unreserved_pct = 100 * ($unreserved / $cache_db_sizes->{data_size});
+      my $reserved_pct = 100  - $unreserved_pct;
+
+      if ($reserved_pct < 0 || $reserved_pct > 100) {
+        # werte aus sp_spaceused
+        # sind von der theorie her nicht so exakt, in der praxis aber doch.
+        # wenn obige werte seltsam aussehen, dann lieber daten aus sysusages verwenden.
+        $unreserved = $cache_db_sizes->{data_free}; # 
+        $reserved = $cache_db_sizes->{data_size} - $unreserved;
+        $unreserved_pct = 100 * ($unreserved / $cache_db_sizes->{data_size});
+        $reserved_pct = 100  - $unreserved_pct;
+      }
+      if ($cache_db_sizes->{log_size}) {
+        # has separate transaction log devices
+        my $database_size = $cache_db_sizes->{data_size} + $cache_db_sizes->{log_size};
+        my $log_free = $cache_db_sizes->{log_free};
+        my $log_used = $cache_db_sizes->{log_used};
+        my $log_free_pct = 100 * ($sp_log_free_pages / $sp_log_total_pages);
+        my $log_used_pct = 100 - $log_free_pct;
+        if ($sp_log_reserved_pages < 0 && ($log_free_pct < 0 || $log_free_pct > 100)) {
+          # sp_spaceused data are not good enough, need to run dbcc
+          $log_free_pct = 100 * ($log_free / $cache_db_sizes->{log_size});
+          $log_used_pct = 100 - $log_free_pct;
         }
+        $self->{max_mb} = $cache_db_sizes->{data_size};
+        $self->{free_mb} = $cache_db_sizes->{data_free};
+        $self->{free_percent} = $unreserved_pct;
+        $self->{allocated_percent} = $reserved_pct; # data_size - unreserved - unused
+        $self->{free_log_mb} = $sp_log_free_pages;
+        $self->{free_log_percent} = $log_free_pct;
+        #printf "%14s %.2f%% %.2f%%  %.2f%%  %.2f%%\n", 
+        #    $self->{name}, $unreserved_pct, $reserved_pct, $log_free_pct, $log_used_pct;
       } else {
-        $db_size =~ /([\d\.]+)\s*([GMKB]+)/;
-        $self->{max_mb} = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
-        $db_reserved =~ /([\d\.]+)\s*([GMKB]+)/;
-        $self->{allocated_mb} = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
-        $db_data =~ /([\d\.]+)\s*([GMKB]+)/;
-        my $data_used = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
-        $db_index_size =~ /([\d\.]+)\s*([GMKB]+)/;
-        my $index_used = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
-        $db_unused =~ /([\d\.]+)\s*([GMKB]+)/;
-        my $unused_used = $1 * ($2 eq "KB" ? 1/1024 : ($2 eq "GB" ? 1024 : 1));
-        #
-        $self->{db_database_size} = $self->{max_mb};
-        $self->{db_reserved} = $self->{allocated_mb};
-        $self->{db_data} = $data_used;
-        $self->{db_index_size} = $index_used;
-        $self->{db_unused} = $unused_used;
-        $self->{log_total_mb} = $log_total_pages * 2048 / $mb;
-        $self->{log_free_mb} = $log_free_pages * 2048 / $mb;
-        $self->{log_used_mb} = $log_used_pages * 2048 / $mb;
-        $self->{log_reserved_mb} = $log_reserved_pages * 2048 / $mb;
-        #
+        my $database_size = $cache_db_sizes->{data_size};
 
-        # this may happen: $db_size == $log_total_pages (seen with a master db)
-        #                           50MB              50MB
-        $self->{db_total} = $self->{max_mb} - $self->{log_total_mb};
-        if ($self->{db_total} != 0) {
-          $self->{db_unreserved} = $self->{db_total} - $self->{db_data} - $self->{db_index_size} - $self->{db_unused};
-          $self->{db_data_percent} = 100 * $self->{db_data} / $self->{db_total};
-          $self->{db_indexes_percent} = 100 * $self->{db_index_size} / $self->{db_total};
-          $self->{db_unused_percent} = 100 * $self->{db_unused} / $self->{db_total};
-          $self->{db_unreserved_percent} = 100 * $self->{db_unreserved} / $self->{db_total};
-          #
-          $self->{log_unused} = $self->{log_total_mb} - $self->{log_used_mb};
-          $self->{log_used_percent} = 100 * $self->{log_used_mb} / $self->{log_total_mb};
-          $self->{log_unused_percent} = 100 * ($self->{log_total_mb} - $self->{log_used_mb}) / $self->{log_total_mb};
-          #
-          # wichtig: log steht _nicht_ fuer daten zur verfuegung
-          $self->{max_mb} = $self->{db_database_size} - $self->{log_total_mb};
-          #
-          $self->{used_mb} = $data_used + $index_used;
-          $self->{free_mb} = $self->{max_mb} - $self->{used_mb};
-          $self->{free_percent} = 100 * $self->{free_mb} / $self->{max_mb};
-          $self->{allocated_percent} = 100 * $self->{allocated_mb} / $self->{max_mb};
-        } else {
-          $self->{db_unreserved} = 0;
-          $self->{db_data_percent} = 100;
-          $self->{db_indexes_percent} = 0;
-          $self->{db_unused_percent} = 0;
-          $self->{db_unreserved_percent} = 0;
-          #
-          $self->{log_unused} = $self->{log_total_mb} - $self->{log_used_mb};
-          $self->{log_used_percent} = 100 * $self->{log_used_mb} / $self->{log_total_mb};
-          $self->{log_unused_percent} = 100 * ($self->{log_total_mb} - $self->{log_used_mb}) / $self->{log_total_mb};
-          #
-          $self->{free_mb} = 0;
-          $self->{free_percent} = 0;
-          $self->{allocated_percent} = 100;
-        }
-        $self->{estimated} = 1;
-        # see also....sp_helpdb [db] and sp_helpdevice. ex. model belongs to device master
-
-        $self->trace(sprintf "Data Space Usage ---------------------");
-        $self->trace(sprintf "Data(%.2f%%) %.2f MB", $self->{db_data_percent}, $self->{db_data});
-        $self->trace(sprintf "Indexes(%.2f%%) %.2f MB", $self->{db_indexes_percent}, $self->{db_index_size});
-        $self->trace(sprintf "Unused(%.2f%%) %.2f MB", $self->{db_unused_percent}, $self->{db_unused});
-        $self->trace(sprintf "Unreserved(%.2f%%) %.2f MB", $self->{db_unreserved_percent}, $self->{db_unreserved});
-        $self->trace(sprintf "Transaction Log Space Usage ---------------------");
-        $self->trace(sprintf "Used(%.2f%%) %.2f MB", $self->{log_used_percent}, $self->{log_used_mb});
-        $self->trace(sprintf "Unused(%.2f%%) %.2f MB", $self->{log_unused_percent}, $self->{log_unused});
+        my $log_used_pct = 100 * $sp_log_used_pages / $cache_db_sizes->{data_size};
+        my $log_free_pct = 100 * $sp_log_free_pages / $cache_db_sizes->{data_size};
+        #printf "%14s %.2f%% %.2f%%  %.2f%%  %.2f%%\n", 
+        #    $self->{name}, $unreserved_pct, $reserved_pct, $log_free_pct, $log_used_pct;
+        $self->{max_mb} = $cache_db_sizes->{data_size};
+        $self->{free_mb} = $unreserved;
+        $self->{free_percent} = $unreserved_pct;
+        $self->{allocated_percent} = $reserved_pct; # data_size - unreserved - unused
+        $self->{free_log_mb} = $sp_log_free_pages;
+        $self->{free_log_percent} = $log_free_pct;
       }
     } else {
       my $calc = {};
@@ -786,6 +827,8 @@ sub nagios {
       }
       if (! $params{units}) {
         $params{units} = "%";
+      } else {
+        $params{units} = uc $params{units};
       }
       $self->{warning_bytes} = 0;
       $self->{critical_bytes} = 0;
@@ -813,21 +856,32 @@ sub nagios {
                 $self->{name}, $self->{free_percent},
                 ($self->{estimated} ? " (estim.)" : ""))
         );
-        $self->{warningrange} =~ s/://g;
-        $self->{criticalrange} =~ s/://g;
-        $self->add_perfdata(sprintf "\'db_%s_free_pct\'=%.2f%%;%d:;%d:",
+        $self->add_perfdata(sprintf "\'db_%s_free_pct\'=%.2f%%;%s;%s",
             lc $self->{name},
             $self->{free_percent},
             $self->{warningrange}, $self->{criticalrange});
-        $self->add_perfdata(sprintf "\'db_%s_free\'=%dMB;%.2f:;%.2f:;0;%.2f",
+        $self->add_perfdata(sprintf "\'db_%s_free\'=%.2fMB;%.2f:;%.2f:;0;%.2f",
             lc $self->{name},
             $self->{free_mb},
-            $self->{warningrange} * $self->{max_mb} / 100,
-            $self->{criticalrange} * $self->{max_mb} / 100,
+            (($self->{warn_mb} = $self->{warningrange}) =~ s/://g && $self->{warn_mb} || $self->{warningrange}) * $self->{max_mb} / 100,
+            (($self->{crit_mb} = $self->{criticalrange}) =~ s/://g && $self->{crit_mb} || $self->{criticalrange}) * $self->{max_mb} / 100,
             $self->{max_mb});
         $self->add_perfdata(sprintf "\'db_%s_allocated_pct\'=%.2f%%",
             lc $self->{name},
             $self->{allocated_percent});
+        if (exists $self->{free_log_percent}) {
+          # sybase with extra transaction log device
+          $self->add_nagios(
+              $self->check_thresholds($self->{free_log_percent}, "5:", "2:"),
+                  sprintf("database %s has %.2f%% free log space left",
+                  $self->{name}, $self->{free_log_percent},
+                  ($self->{estimated} ? " (estim.)" : ""))
+          );
+          $self->add_perfdata(sprintf "\'db_%s_free_log_pct\'=%.2f%%;%s;%s",
+              lc $self->{name},
+              $self->{free_log_percent},
+              $self->{warningrange}, $self->{criticalrange});
+        }
       } else {
         my $factor = 1; # default MB
         if ($params{units} eq "GB") {
@@ -839,33 +893,27 @@ sub nagios {
         }
         $self->{warningrange} ||= "5:";
         $self->{criticalrange} ||= "2:";
-        my $saved_warningrange = $self->{warningrange};
-        my $saved_criticalrange = $self->{criticalrange};
         # : entfernen weil gerechnet werden muss
-        $self->{warningrange} =~ s/://g;
-        $self->{criticalrange} =~ s/://g;
-        $self->{warningrange} = $self->{warningrange} ?
-            $self->{warningrange} * $factor : 5 * $factor;
-        $self->{criticalrange} = $self->{criticalrange} ?
-            $self->{criticalrange} * $factor : 2 * $factor;
-        $self->{percent_warning} = 100 * $self->{warningrange} / $self->{max_mb};
-        $self->{percent_critical} = 100 * $self->{criticalrange} / $self->{max_mb};
-        $self->{warningrange} .= ':';
-        $self->{criticalrange} .= ':';
+        my $wnum = $self->{warningrange};
+        my $cnum = $self->{criticalrange};
+        $wnum =~ s/://g;
+        $cnum =~ s/://g;
+        $wnum *= $factor; # ranges in mb umrechnen
+        $cnum *= $factor;
+        $self->{percent_warning} = 100 * $wnum / $self->{max_mb};
+        $self->{percent_critical} = 100 * $wnum / $self->{max_mb};
+        #$self->{warningrange} = ($wnum / $factor).":";
+        #$self->{criticalrange} = ($cnum / $factor).":";
         $self->add_nagios(
-            $self->check_thresholds($self->{free_mb}, "5242880:", "1048576:"),
+            $self->check_thresholds($self->{free_mb} / $factor, "5242880:", "1048576:"),
                 sprintf("database %s has %.2f%s free space left", $self->{name},
                     $self->{free_mb} / $factor, $params{units})
         );
-        $self->{warningrange} = $saved_warningrange;
-        $self->{criticalrange} = $saved_criticalrange;
-        $self->{warningrange} =~ s/://g;
-        $self->{criticalrange} =~ s/://g;
         $self->add_perfdata(sprintf "\'db_%s_free_pct\'=%.2f%%;%.2f:;%.2f:",
             lc $self->{name},
             $self->{free_percent}, $self->{percent_warning},
             $self->{percent_critical});
-        $self->add_perfdata(sprintf "\'db_%s_free\'=%.2f%s;%.2f:;%.2f:;0;%.2f",
+        $self->add_perfdata(sprintf "\'db_%s_free\'=%.2f%s;%s;%s;0;%.2f",
             lc $self->{name},
             $self->{free_mb} / $factor, $params{units},
             $self->{warningrange},
@@ -874,6 +922,18 @@ sub nagios {
         $self->add_perfdata(sprintf "\'db_%s_allocated_pct\'=%.2f%%",
             lc $self->{name},
             $self->{allocated_percent});
+        if (exists $self->{free_log_percent}) {
+          # sybase with extra transaction log device
+          $self->add_nagios(
+              $self->check_thresholds($self->{free_log_mb} / $factor, "5:", "2:"),
+                  sprintf("database %s has %.2f%s free log space left",
+                  $self->{name}, $self->{free_log_mb} / $factor, $params{units})
+          );
+          $self->add_perfdata(sprintf "\'db_%s_free_log_pct\'=%.2f%%;%s;%s",
+              lc $self->{name},
+              $self->{free_log_percent},
+              $self->{warningrange}, $self->{criticalrange});
+        }
       }
     } elsif ($params{mode} =~ /server::database::auto(growths|shrinks)/) {
       my $type = ""; 
