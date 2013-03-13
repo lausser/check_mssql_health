@@ -290,11 +290,19 @@ you would reach the Default instance.
 Download
 --------
 
-http://labs.consol.de/download/shinken-nagios-plugins/check_mssql_health-1.5.18.tar.gz[check_mssql_health-1.5.18.tar.gz]
+http://labs.consol.de/download/shinken-nagios-plugins/check_mssql_health-1.5.19.tar.gz[check_mssql_health-1.5.19.tar.gz]
 
 
 Changelog
 ---------
+
+* 1.5.19 2013-02-28
++
+rewrote database-free for sybase
+
+* 1.5.18.1 2013-01-22
++
+fixed a bug in sybase database-free
 
 * 1.5.18 2012-01-03
 +
