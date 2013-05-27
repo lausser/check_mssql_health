@@ -253,7 +253,7 @@ sub init {
     }
   } elsif ($params{mode} =~ /^server::batchrequests/) {
     $self->{batch_requests_s} = $self->{handle}->get_perf_counter(
-        "SQLServer:SQL Statistics", "Batch requests/sec");
+        "SQLServer:SQL Statistics", "Batch Requests/sec");
     if (! defined $self->{batch_requests_s}) {
       $self->add_nagios_unknown("unable to aquire counter data");
     } else {

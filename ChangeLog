@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.19.1 2013-05-27
+- fixed a bug in batch-requests, which affected case sensitive colletion systems like SAP (Thanks Andreas Seemueller)
+
 1.5.19 2013-02-28
 - rewrote database-free for sybase
 
