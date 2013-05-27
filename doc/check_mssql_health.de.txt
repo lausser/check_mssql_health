@@ -29,8 +29,8 @@ Um dem Plugin mitzuteilen, welche Werte es ermitteln und prüfen soll, benutzt m
 Modi
 ~~~~
 
-[role="nagiosplugins"]
-|====
+[role="nagiosplugins", cols=3, width="50%"]
+|==================================================================================================================================
 | *Schlüsselwort* | *Bedeutung* | *Wertebereich* 
 |connection-time|Misst, wie lange Verbindungsaufbau und Login dauern|0..n Sekunden (1, 5)
 |connected-users|Anzahl der verbundenen Benutzer|0..n (50, 80)
@@ -68,7 +68,7 @@ Modi
 |sql-runtime|Laufzeit eines beliebigen SQL-Befehls in Sekunden. Der Befehl selbst wird mit dem Parameter --name übergeben.|0..n (1, 5)
 |list-databases|Gibt eine Liste aller Datenbanken aus|-
 |list-locks|Gibt eine Liste aller Locks aus|-
-|====
+|==================================================================================================================================
 
 Es ist zu beachten, daß Schwellwerte entsprechend den Nagios Developer Guidelines anzugeben sind. + 
 "10" bedeutet demzufolge "Alarm, wenn > 10" und + 
