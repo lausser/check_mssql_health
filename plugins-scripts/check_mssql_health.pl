@@ -94,6 +94,9 @@ my @modes = (
       'Dirty pages flushed to disk per second. (usually by a checkpoint)' ],
 
 
+  ['server::database::online',
+      'database-online', undef,
+      'Check if a database is online and accepting connections' ],
   ['server::database::databasefree',
       'database-free', undef,
       'Free space in database' ],
@@ -103,9 +106,39 @@ my @modes = (
   ['server::database::logbackupage',
       'database-logbackup-age', ['logbackup-age'],
       'Elapsed time (in hours) since a database transaction log was last backed up' ],
+  ['server::database::autogrowths::file',
+      'database-file-auto-growths', undef,
+      'The number of File Auto Grow events (either data or log) in the last <n> minutes (use --lookback)' ],
+  ['server::database::autogrowths::logfile',
+      'database-logfile-auto-growths', undef,
+      'The number of Log File Auto Grow events in the last <n> minutes (use --lookback)' ],
+  ['server::database::autogrowths::datafile',
+      'database-datafile-auto-growths', undef,
+      'The number of Data File Auto Grow events in the last <n> minutes (use --lookback)' ],
+  ['server::database::autoshrinks::file',
+      'database-file-auto-shrinks', undef,
+      'The number of File Auto Shrink events (either data or log) in the last <n> minutes (use --lookback)' ],
+  ['server::database::autoshrinks::logfile',
+      'database-logfile-auto-shrinks', undef,
+      'The number of Log File Auto Shrink events in the last <n> minutes (use --lookback)' ],
+  ['server::database::autoshrinks::datafile',
+      'database-datafile-auto-shrinks', undef,
+      'The number of Data File Auto Shrink events in the last <n> minutes (use --lookback)' ],
+  ['server::database::dbccshrinks::file',
+      'database-file-dbcc-shrinks', undef,
+      'The number of DBCC File Shrink events (either data or log) in the last <n> minutes (use --lookback)' ],
+
+  ['server::jobs::failed',
+      'failed-jobs', undef,
+      'The number of jobs which did not exit successful in the last <n> minutes (use --lookback)' ],
+
   ['server::sql',
       'sql', undef,
       'any sql command returning a single number' ],
+  ['server::sqlruntime',
+      'sql-runtime', undef,
+      'the time an sql command needs to run' ],
+
   ['server::database::listdatabases',
       'list-databases', undef,
       'convenience function which lists all databases' ],
@@ -172,11 +205,19 @@ EOUS
     --units
        one of %, KB, MB, GB. This is used for a better output of mode=sql
        and for specifying thresholds for mode=tablespace-free
+    --offlineok
+       if mode database-free finds a database which is currently offline,
+       a WARNING is issued. If you don't want this and if offline databases
+       are perfectly ok for you, then add --offlineok. You will get OK instead.
 
   Database-related modes check all databases in one run by default.
   If only a single database should be checked, use the --name parameter.
   The same applies to datafile-related modes.
-  
+  If an additional --regexp is added, --name's argument will be interpreted
+  as a regular expression.
+  The parameter --mitigation lets you classify the severity of an offline
+  tablespace. 
+
   In mode sql you can url-encode the statement so you will not have to mess
   around with special characters in your Nagios service definitions.
   Instead of 
@@ -187,8 +228,7 @@ EOUS
   option and it will encode the standard input.
 
   You can find the full documentation for this plugin at
-  http://www.consol.de/opensource/nagios/check-mssql-health or
-  http://www.consol.com/opensource/nagios/check-mssql-health
+  http://labs.consol.de/nagios/check_mssql_health or
 
 
 EOUS
@@ -257,6 +297,9 @@ my @params = (
     "database=s",
     "datafile=s",
     "waitevent=s",
+    "offlineok",
+    "mitigation=s",
+    "notemp",
     "name=s",
     "name2=s",
     "regexp",
@@ -421,6 +464,18 @@ if ($needs_restart) {
   exit;
 }
 
+if (exists $commandline{mitigation}) {
+  if ($commandline{mitigation} eq "ok") {
+    $commandline{mitigation} = 0;
+  } elsif ($commandline{mitigation} eq "warning") {
+    $commandline{mitigation} = 1;
+  } elsif ($commandline{mitigation} eq "critical") {
+    $commandline{mitigation} = 2;
+  } elsif ($commandline{mitigation} eq "unknown") {
+    $commandline{mitigation} = 3;
+  }
+}
+
 if (exists $commandline{shell}) {
   # forget what you see here.
   system("/bin/sh");
@@ -513,11 +568,16 @@ my %params = (
     criticalrange => $commandline{critical},
     dbthresholds => $commandline{dbthresholds},
     absolute => $commandline{absolute},
-    lookback => $commandline{lookback},
+    lookback => $commandline{lookback} || 30,
     tablespace => $commandline{tablespace},
     database => $commandline{database},
     datafile => $commandline{datafile},
+    offlineok => $commandline{offlineok},
+    mitigation => $commandline{mitigation},
     basis => $commandline{basis},
+    offlineok => $commandline{offlineok},
+    mitigation => $commandline{mitigation},
+    notemp => $commandline{notemp},
     selectname => $commandline{name} || $commandline{tablespace} || $commandline{datafile},
     regexp => $commandline{regexp},
     name => $commandline{name},

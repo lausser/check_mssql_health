@@ -94,6 +94,8 @@ sub new {
     } else {
         $self->{dbuser} = $self->{handle}->fetchrow_array(
             q{ SELECT SUSER_NAME() });
+        $self->{maxpagesize} = $self->{handle}->fetchrow_array(
+            q{ SELECT @@MAXPAGESIZE });
     }
     DBD::MSSQL::Server::add_server($self);
     $self->init(%params);
@@ -116,6 +118,14 @@ sub init {
     } else {
       $self->add_nagios_critical("unable to aquire database info");
     }
+  } elsif ($params{mode} =~ /^server::jobs/) {
+    DBD::MSSQL::Server::Job::init_jobs(%params);
+    if (my @jobs =
+        DBD::MSSQL::Server::Job::return_jobs()) {
+      $self->{jobs} = \@jobs;
+    } else {
+      $self->add_nagios_critical(sprintf "no jobs ran within the last %d minutes", $params{lookback});
+    }
   } elsif ($params{mode} =~ /^server::connectiontime/) {
     $self->{connection_time} = $self->{tac} - $self->{tic};
   } elsif ($params{mode} =~ /^server::cpubusy/) {
@@ -128,6 +138,19 @@ sub init {
       # new: people were complaining about percentages > 100%
       # http://sqlblog.com/blogs/kalen_delaney/archive/2007/12/08/hyperthreaded-or-not.aspx
       # count only cpus, virtual or not, cores or threads
+      # this is some debugging code to see the single values with -v
+      my $cpu_busy = $self->{handle}->fetchrow_array(q{
+          SELECT @@CPU_BUSY FROM sys.dm_os_sys_info
+      });
+      my $timeticks = $self->{handle}->fetchrow_array(q{
+          SELECT CAST(@@TIMETICKS AS FLOAT) FROM sys.dm_os_sys_info
+      });
+      my $cpu_count = $self->{handle}->fetchrow_array(q{
+          SELECT CAST(CPU_COUNT AS FLOAT) FROM sys.dm_os_sys_info
+      });
+      my $hyperthread_ratio = $self->{handle}->fetchrow_array(q{
+          SELECT CAST(HYPERTHREAD_RATIO AS FLOAT) FROM sys.dm_os_sys_info
+      });
       ($self->{secs_busy}) = $self->{handle}->fetchrow_array(q{
           SELECT ((@@CPU_BUSY * CAST(@@TIMETICKS AS FLOAT)) /
               (SELECT (CAST(CPU_COUNT AS FLOAT)) FROM sys.dm_os_sys_info) /
@@ -230,7 +253,7 @@ sub init {
     }
   } elsif ($params{mode} =~ /^server::batchrequests/) {
     $self->{batch_requests_s} = $self->{handle}->get_perf_counter(
-        "SQLServer:SQL Statistics", "Batch requests/sec");
+        "SQLServer:SQL Statistics", "Batch Requests/sec");
     if (! defined $self->{batch_requests_s}) {
       $self->add_nagios_unknown("unable to aquire counter data");
     } else {
@@ -258,6 +281,12 @@ sub init {
     if (! defined $self->{connectedusers}) {
       $self->add_nagios_unknown("unable to count connected users");
     }
+  } elsif ($params{mode} =~ /^server::sqlruntime/) {
+    $self->set_local_db_thresholds(%params);
+    my $tic = Time::HiRes::time();
+      @{$self->{genericsql}} =
+          $self->{handle}->fetchrow_array($params{selectname});
+    $self->{runtime} = Time::HiRes::time() - $tic;
   } elsif ($params{mode} =~ /^server::sql/) {
     $self->set_local_db_thresholds(%params);
     if ($params{regexp}) {
@@ -359,6 +388,11 @@ sub nagios {
         $self->merge_nagios($_);
       }
     } elsif ($params{mode} =~ /^server::database/) {
+    } elsif ($params{mode} =~ /^server::jobs/) {
+      foreach (@{$self->{jobs}}) {
+        $_->nagios(%params);
+        $self->merge_nagios($_);
+      }
     } elsif ($params{mode} =~ /^server::lock/) {
       foreach (@{$self->{locks}}) {
         $_->nagios(%params);
@@ -444,6 +478,15 @@ sub nagios {
           sprintf "%d connected users", $self->{connectedusers});
       $self->add_perfdata(sprintf "connected_users=%d;%s;%s",
           $self->{connectedusers},
+          $self->{warningrange}, $self->{criticalrange});
+    } elsif ($params{mode} =~ /^server::sqlruntime/) {
+      $self->add_nagios(
+          $self->check_thresholds($self->{runtime}, 1, 5),
+          sprintf "%.2f seconds to execute %s",
+              $self->{runtime},
+              $params{name2} ? $params{name2} : $params{selectname});
+      $self->add_perfdata(sprintf "sql_runtime=%.4f;%d;%d",
+          $self->{runtime},
           $self->{warningrange}, $self->{criticalrange});
     } elsif ($params{mode} =~ /^server::sql/) {
       if ($params{regexp}) {
@@ -543,17 +586,47 @@ sub check_thresholds {
       $self->{warningrange} : $defaultwarningrange;
   $self->{criticalrange} = defined $self->{criticalrange} ?
       $self->{criticalrange} : $defaultcriticalrange;
-  if ($self->{warningrange} !~ /:/ && $self->{criticalrange} !~ /:/) {
-    # warning = 10, critical = 20, warn if > 10, crit if > 20
-    $level = $ERRORS{WARNING} if $value > $self->{warningrange};
-    $level = $ERRORS{CRITICAL} if $value > $self->{criticalrange};
-  } elsif ($self->{warningrange} =~ /(\d+):/ && 
-      $self->{criticalrange} =~ /(\d+):/) {
-    # warning = 98:, critical = 95:, warn if < 98, crit if < 95
-    $self->{warningrange} =~ /(\d+):/;
-    $level = $ERRORS{WARNING} if $value < $1;
-    $self->{criticalrange} =~ /(\d+):/;
-    $level = $ERRORS{CRITICAL} if $value < $1;
+  if ($self->{warningrange} =~ /^(\d+)$/) {
+    # warning = 10, warn if > 10 or < 0
+    $level = $ERRORS{WARNING}
+        if ($value > $1 || $value < 0);
+  } elsif ($self->{warningrange} =~ /^(\d+):$/) {
+    # warning = 10:, warn if < 10
+    $level = $ERRORS{WARNING}
+        if ($value < $1);
+  } elsif ($self->{warningrange} =~ /^~:(\d+)$/) {
+    # warning = ~:10, warn if > 10
+    $level = $ERRORS{WARNING}
+        if ($value > $1);
+  } elsif ($self->{warningrange} =~ /^(\d+):(\d+)$/) {
+    # warning = 10:20, warn if < 10 or > 20
+    $level = $ERRORS{WARNING}
+        if ($value < $1 || $value > $2);
+  } elsif ($self->{warningrange} =~ /^@(\d+):(\d+)$/) {
+    # warning = @10:20, warn if >= 10 and <= 20
+    $level = $ERRORS{WARNING}
+        if ($value >= $1 && $value <= $2);
+  }
+  if ($self->{criticalrange} =~ /^(\d+)$/) {
+    # critical = 10, crit if > 10 or < 0
+    $level = $ERRORS{CRITICAL}
+        if ($value > $1 || $value < 0);
+  } elsif ($self->{criticalrange} =~ /^(\d+):$/) {
+    # critical = 10:, crit if < 10
+    $level = $ERRORS{CRITICAL}
+        if ($value < $1);
+  } elsif ($self->{criticalrange} =~ /^~:(\d+)$/) {
+    # critical = ~:10, crit if > 10
+    $level = $ERRORS{CRITICAL}
+        if ($value > $1);
+  } elsif ($self->{criticalrange} =~ /^(\d+):(\d+)$/) {
+    # critical = 10:20, crit if < 10 or > 20
+    $level = $ERRORS{CRITICAL}
+        if ($value < $1 || $value > $2);
+  } elsif ($self->{criticalrange} =~ /^@(\d+):(\d+)$/) {
+    # critical = @10:20, crit if >= 10 and <= 20
+    $level = $ERRORS{CRITICAL}
+        if ($value >= $1 && $value <= $2);
   }
   return $level;
   #
@@ -1281,6 +1354,8 @@ sub init {
       $retval = undef;
     } elsif ($stderrvar && $stderrvar =~ /can't change context to database/) {
       $self->{errstr} = $stderrvar;
+    } else {
+      $self->{errstr} = "";
     }
   }
   $self->{tac} = Time::HiRes::time();
@@ -1293,7 +1368,10 @@ sub fetchrow_array {
   my @arguments = @_;
   my $sth = undef;
   my @row = ();
-  my @errrow = ();
+  my $stderrvar;
+  *SAVEERR = *STDERR;
+  open ERR ,'>',\$stderrvar;
+  *STDERR = *ERR;
   eval {
     if ($self->{dsn} =~ /tdsLevel/) {
       # better install a handler here. otherwise the plugin output is
@@ -1301,7 +1379,8 @@ sub fetchrow_array {
       $self->{handle}->{syb_err_handler} = sub {
         my($err, $sev, $state, $line, $server,
             $proc, $msg, $sql, $err_type) = @_;
-        push(@errrow, $msg);
+        #push(@errrow, $msg);
+        $self->{errstr} = join("\n", (split(/\n/, $self->{errstr}), $msg));
         return 0;
       };
     }
@@ -1326,17 +1405,18 @@ sub fetchrow_array {
     $self->trace(sprintf "RESULT:\n%s\n",
         Data::Dumper::Dumper(\@row));
   }; 
+  *STDERR = *SAVEERR;
+  $self->{errstr} = join("\n", (split(/\n/, $self->{errstr}), $stderrvar)) if $stderrvar;
   if ($@) {
-    printf STDERR "database error %s\n", $@;
-    $self->debug(sprintf "bumm %s", $@);
+    $self->trace(sprintf "bumm %s", $@);
+  }
+  if ($stderrvar) {
+    $self->trace(sprintf "stderr %s", $self->{errstr}) ;
   }
   if (-f "/tmp/check_mssql_health_simulation/".$self->{mode}) {
     my $simulation = do { local (@ARGV, $/) = 
         "/tmp/check_mssql_health_simulation/".$self->{mode}; <> };
     @row = split(/\s+/, (split(/\n/, $simulation))[0]);
-  }
-  if (@errrow) {
-    $self->{errrow} = \@errrow;
   }
   return $row[0] unless wantarray;
   return @row;
@@ -1348,6 +1428,10 @@ sub fetchall_array {
   my @arguments = @_;
   my $sth = undef;
   my $rows = undef;
+  my $stderrvar;
+  *SAVEERR = *STDERR;
+  open ERR ,'>',\$stderrvar;
+  *STDERR = *ERR;
   eval {
     $self->trace(sprintf "SQL:\n%s\nARGS:\n%s\n",
         $sql, Data::Dumper::Dumper(\@arguments));
@@ -1373,8 +1457,14 @@ sub fetchall_array {
     $self->trace(sprintf "RESULT:\n%s\n",
         Data::Dumper::Dumper($rows));
   }; 
+  *STDERR = *SAVEERR;
+  $self->{errstr} = join("\n", (split(/\n/, $self->{errstr}), $stderrvar)) if $stderrvar;
   if ($@) {
-    printf STDERR "bumm %s\n", $@;
+    $self->trace(sprintf "bumm %s", $@);
+    $rows = [];
+  }
+  if ($stderrvar) {
+    $self->trace(sprintf "stderr %s", $self->{errstr}) ;
   }
   if (-f "/tmp/check_mssql_health_simulation/".$self->{mode}) {
     my $simulation = do { local (@ARGV, $/) = 
