@@ -332,7 +332,13 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         } else {
           @databaseresult = $params{handle}->fetchall_array(q{
             SELECT
-              a.name, a.recovery_model,
+              a.name,
+              CASE databasepropertyex(a.name, 'Recovery')
+                WHEN 'FULL' THEN 1
+                WHEN 'BULK_LOGGED' THEN 2
+                WHEN 'SIMPLE' THEN 3
+                ELSE 0
+              END AS recovery_model,
               DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
               DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
             FROM master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
