@@ -845,11 +845,11 @@ sub dbconnect {
   $self->{handle} = DBD::MSSQL::Server::Connection->new(%params);
   if ($self->{handle}->{errstr}) {
     if ($self->{handle}->{errstr} eq "alarm\n") {
-      $self->add_nagios($ERRORS{CRITICAL},
+      $self->add_nagios($ERRORS{UNKNOWN},
           sprintf "connection could not be established within %d seconds",
               $self->{timeout});
     } else {
-      $self->add_nagios($ERRORS{CRITICAL},
+      $self->add_nagios($ERRORS{UNKNOWN},
           sprintf "cannot connect to %s. %s",
           ($self->{server} ? $self->{server} :
           ($self->{hostname} ? $self->{hostname} : "unknown host")),
