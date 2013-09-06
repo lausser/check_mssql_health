@@ -138,6 +138,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
       }
       foreach (@databaseresult) {
         my ($name, $state, $state_desc, $collation_name) = @{$_};
+        next if $params{notemp} && $name eq "tempdb";
         next if $params{database} && $name ne $params{database};
         if ($params{regexp}) {
           next if $params{selectname} && $name !~ /$params{selectname}/;
@@ -212,6 +213,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         }
       }
       foreach my $name (@databasenames) {
+        next if $params{notemp} && $name eq "tempdb";
         next if $params{database} && $name ne $params{database};
         if ($params{regexp}) {
           next if $params{selectname} && $name !~ /$params{selectname}/;
@@ -274,6 +276,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         }
       }
       foreach my $name (@databasenames) {
+        next if $params{notemp} && $name eq "tempdb";
         next if $params{database} && $name ne $params{database};
         if ($params{regexp}) {
           next if $params{selectname} && $name !~ /$params{selectname}/;
@@ -351,6 +354,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
           }
         } @databaseresult) { 
           my ($name, $recovery_model, $age, $duration) = @{$_};
+          next if $params{notemp} && $name eq "tempdb";
           next if $params{database} && $name ne $params{database};
           if ($params{regexp}) { 
             next if $params{selectname} && $name !~ /$params{selectname}/;
@@ -375,6 +379,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         });
         foreach (@databaseresult) {
           my ($name, $id) = @{$_};
+          next if $params{notemp} && $name eq "tempdb";
           next if $params{database} && $name ne $params{database};
           if ($params{regexp}) {
             next if $params{selectname} && $name !~ /$params{selectname}/;
