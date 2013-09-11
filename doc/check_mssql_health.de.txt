@@ -132,6 +132,10 @@ ELSE
 PRINT 'create Nagios plugin user ' + @check_mssql_health_USER
 EXEC ('CREATE LOGIN ' + @check_mssql_health_USER + @source + @options)
 EXEC ('USE MASTER GRANT VIEW SERVER STATE TO ' + @check_mssql_health_USER)
+EXEC ('USE MASTER GRANT ALTER trace TO ' + @check_mssql_health_USER)
+EXEC ('USE MSDB GRANT SELECT ON sysjobhistory TO ' + @check_mssql_health_USER)
+EXEC ('USE MSDB GRANT SELECT ON sysjobschedules TO ' + @check_mssql_health_USER)
+EXEC ('USE MSDB GRANT SELECT ON sysjobs TO ' + @check_mssql_health_USER)
 PRINT 'User ' + @check_mssql_health_USER + ' created.'
 PRINT ''
 
@@ -253,9 +257,9 @@ Dieses Plugin setzt die Installation des *Perl-Moduls DBD::Sybase* voraus.
 
 Nach dem Auspacken des Archivs wird ./configure aufgerufen. Mit ./configure --help können Optionen angezeigt werden, die für den Bau des Plugins einige Defaulteinstellungen liefern.
 
-* *--prefix=BASEDIRECTORY* Geben Sie hier das Verzeichnis an, in dem check_mysql_health liegen soll. (default: /usr/local/nagios)
-* *--with-nagios-user=SOMEUSER* Dieser User wird der Eigentümer der Datei check_mysql_health sein. (default: nagios)
-* *--with-nagios-group=SOMEGROUP* Die Gruppe des check_mysql_health Binaries. (default: nagios)
+* *--prefix=BASEDIRECTORY* Geben Sie hier das Verzeichnis an, in dem check_mssql_health liegen soll. (default: /usr/local/nagios)
+* *--with-nagios-user=SOMEUSER* Dieser User wird der Eigentümer der Datei check_mssql_health sein. (default: nagios)
+* *--with-nagios-group=SOMEGROUP* Die Gruppe des check_mssql_health Binaries. (default: nagios)
 * *--with-perl=PATHTOPERL* Geben sie hier den Pfad zum Perl-Interpreter an, den sie benutzen möchten. (default: perl im PATH)
 
 
@@ -302,6 +306,18 @@ http://labs.consol.de/download/shinken-nagios-plugins/check_mssql_health-1.5.19.
 
 Changelog
 ---------
+
+*1.5.19.3 2013-09-11
++
+fix an uninitialized state_desc
+
+* 1.5.19.2 2013-09-06
++
+parameter --notemp is now usable for many modes
+
+* 1.5.19.1 2013-05-27
++
+fixed a bug in batch-requests, which affected case sensitive colletion systems like SAP (Thanks Andreas Seemueller)
 
 * 1.5.19 2013-02-28
 +
