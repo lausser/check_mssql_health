@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.19.3 2013-09-11
+- fix an uninitialized state_desc
+
 1.5.19.2 2013-09-06
 - parameter --notemp is now usable for many modes
 

@@ -441,7 +441,7 @@ sub new {
     autogrowshrink => $params{autogrowshrink},
     growshrinkinterval => $params{growshrinkinterval},
     state => $params{state},
-    state_desc => lc $params{state_desc},
+    state_desc => $params{state_desc} ? lc $params{state_desc} : undef,
     collation_name => $params{collation_name},
     recovery_model => $params{recovery_model},
     offline => 0,
