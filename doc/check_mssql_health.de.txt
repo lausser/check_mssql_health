@@ -307,7 +307,7 @@ http://labs.consol.de/download/shinken-nagios-plugins/check_mssql_health-1.5.19.
 Changelog
 ---------
 
-*1.5.19.3 2013-09-11
+* 1.5.19.3 2013-09-11
 +
 fix an uninitialized state_desc
 

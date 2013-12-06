@@ -160,6 +160,7 @@ sub init {
       if (defined $self->{secs_busy}) {
         $self->{cpu_busy} = 100 *
             $self->{delta_secs_busy} / $self->{delta_timestamp};
+        $self->protect_value('cpu_busy', 'cpu_busy', 'percent');
       } else {
         $self->add_nagios_critical("got no cputime from dm_os_sys_info");
       }
@@ -187,12 +188,39 @@ sub init {
               (SELECT CAST(CPU_COUNT AS FLOAT) FROM sys.dm_os_sys_info) /
               1000000)
       });
-      $self->valdiff(\%params, qw(secs_busy));
+      ($self->{secs_busy2}) = $self->{handle}->fetchrow_array(q{
+          SELECT
+              SUM(WAIT_TIME_MS) / 1000.0
+          FROM
+              sys.dm_os_wait_stats
+          WHERE
+              wait_type IN ('ASYNC_IO_COMPLETION', 'IO_COMPLETION', 
+                  'WRITELOG', 'BACKUPIO')
+              OR wait_type like 'PAGEIOLATCH%'
+      });
+#      ($self->{secs_busy}) = $self->{handle}->fetchrow_array(q{
+#        -- if pct signal wait > 10%, means that more cpu are required 
+#          SELECT 
+#              CAST(100.0 * SUM(signal_wait_time_ms) / SUM(wait_time_ms)) 
+#                  AS [%signal (cpu) waits],
+#              CAST(100.0 * SUM(wait_time_ms - signal_wait_time_ms) / SUM(wait_time_ms))
+#                  AS [%resource waits]
+#          FROM sys.dm_os_wait_stats
+#      });
+ 
+      $self->valdiff(\%params, qw(secs_busy secs_busy2));
       if (defined $self->{secs_busy}) {
         $self->{io_busy} = 100 *
             $self->{delta_secs_busy} / $self->{delta_timestamp};
+        $self->protect_value('io_busy', 'io_busy', 'percent');
       } else {
         $self->add_nagios_critical("got no iotime from dm_os_sys_info");
+      }
+      if (defined $self->{secs_busy2}) {
+        $self->{io_busy2} = 100 *
+            $self->{delta_secs_busy2} / $self->{delta_timestamp};
+      } else {
+        $self->add_nagios_critical("got no iotime2 from dm_os_sys_info");
       }
     } else {
       #$self->requires_version('9');
@@ -903,6 +931,39 @@ sub DESTROY {
   #$self->trace(sprintf "DESTROY %s exit with handle %s %s", ref($self), $handle1, $handle2);
   if (ref($self) eq "DBD::MSSQL::Server") {
     #printf "humpftata\n";
+  }
+}
+
+sub protect_value {
+  my $self = shift;
+  my $ident = shift;
+  my $key = shift;
+  my $validfunc = shift;
+  if (ref($validfunc) eq "SCALAR" && $validfunc eq "percent") {
+    $validfunc = sub {
+      my $value = shift;
+      return ($value < 0 || $value > 100) ? 0 : 1;
+    }
+  }
+  if (&$validfunc($self->{$key})) {
+    $self->save_state(name => 'protect_'.$ident.'_'.$key, save => {
+        $key => $self->{$key},
+        exception => 0,
+    });
+  } else {
+    # if the device gives us an clearly wrong value, simply use the last value.
+    my $laststate = $self->load_state(name => 'protect_'.$ident.'_'.$key);
+    $self->debug(sprintf "self->{%s} is %s and invalid for the %dth time",
+        $key, $self->{$key}, $laststate->{exception} + 1);
+    if ($laststate->{exception} <= 5) {
+      # but only 5 times. 
+      # if the error persists, somebody has to check the device.
+      $self->{$key} = $laststate->{$key};
+    }
+    $self->save_state(name => 'protect_'.$ident.'_'.$key, save => {
+        $key => $laststate->{$key},
+        exception => $laststate->{exception}++,
+    });
   }
 }
 

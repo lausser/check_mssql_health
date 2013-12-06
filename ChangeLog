@@ -2,6 +2,11 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.20 2013-12-06
+- handle wrong io_busy and cpu_busy values (hickups of 500% caused by counter overflows
+  are replaced by the last valid value. if the error persists dirung 5 plugin runs
+  the obviously wrong value is reported)
+
 1.5.19.3 2013-09-11
 - fix an uninitialized state_desc
 
