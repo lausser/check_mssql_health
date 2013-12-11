@@ -1082,7 +1082,15 @@ sub valdiff {
       $self->{'delta_'.$_} = $self->{$_} - $last_values->{$_};
     } else {
       # vermutlich db restart und zaehler alle auf null
-      $self->{'delta_'.$_} = $self->{$_};
+      # und sowas hier gibt's auch noch: beide werte sind 349525.330729167
+      # perl ist der meinung, dass $self->{$_} < $last_values->{$_}
+      # liegt wohl an rundungsfehlern beim schreiben durch data::dumper etc.
+      # heraus kommen dann irrsinnigste werte CRITICAL - CPU busy 582542.22%
+      if (sprintf("%s", $self->{$_}) eq sprintf("%s", $last_values->{$_})) {
+        $self->{'delta_'.$_} = 0;
+      } else {
+        $self->{'delta_'.$_} = $self->{$_};
+      }
     }
     $self->debug(sprintf "delta_%s %f", $_, $self->{'delta_'.$_});
   }
