@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_REVISION ($Revision: 1.150 $)
 AC_PREREQ(2.58)
-AC_INIT(check_mssql_health,1.5.20)
+AC_INIT(check_mssql_health,1.5.20.1)
 AM_INIT_AUTOMAKE([1.9 tar-pax])
 AC_CANONICAL_HOST
 
@@ -86,13 +86,7 @@ AC_ARG_WITH(perl,
   with_perl=$withval,with_perl=$PERL)
 AC_SUBST(PERL, $with_perl)
 
-AC_OUTPUT(
-  Makefile 
-  plugins-scripts/Makefile 
-  plugins-scripts/subst 
-  t/Makefile
-  doc/Makefile
-)
+AC_OUTPUT(Makefile plugins-scripts/Makefile plugins-scripts/subst t/Makefile doc/Makefile)
 
 ACX_FEATURE([with],[perl])
 ACX_FEATURE([with],[statefiles-dir])
