@@ -130,7 +130,10 @@ my @modes = (
 
   ['server::jobs::failed',
       'failed-jobs', undef,
-      'The number of jobs which did not exit successful in the last <n> minutes (use --lookback)' ],
+      'The jobs which did not exit successful in the last <n> minutes (use --lookback)' ],
+  ['server::jobs::enabled',
+      'jobs-enabled', undef,
+      'The jobs which are not enabled (scheduled)' ],
 
   ['server::sql',
       'sql', undef,

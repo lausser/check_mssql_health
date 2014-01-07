@@ -4,6 +4,7 @@
 
 1.5.20.1 2014-01-07
 - update configure.ac
+- add mode jobs-enabled (Thanks Thomas Gelf)
 
 1.5.20 2013-12-06
 - handle wrong io_busy and cpu_busy values (hickups of 500% caused by counter overflows

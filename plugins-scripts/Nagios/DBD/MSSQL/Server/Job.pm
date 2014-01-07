@@ -24,6 +24,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
     my %params = @_;
     my $num_jobs = 0;
     if (($params{mode} =~ /server::jobs::failed/) ||
+        ($params{mode} =~ /server::jobs::enabled/) ||
         ($params{mode} =~ /server::jobs::dummy/)) {
       my @jobresult = ();
       if ($params{product} eq "MSSQL") {
@@ -122,8 +123,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
       }
       foreach (@jobresult) {
         my ($id, $name, $now, $minutessincestart, $lastrundurationseconds, $lastrundatetime, $lastrunstatus, $lastrunduration, $lastrunstatusmessage, $nextrundatetime) = @{$_};
-        next if $minutessincestart > $params{lookback};
-        next if $params{job} && $name ne $params{job};
+        next if defined $minutessincestart && $minutessincestart > $params{lookback};
         if ($params{regexp}) {
           next if $params{selectname} && $name !~ /$params{selectname}/;
         } else {
@@ -137,6 +137,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         $thisparams{lastrundurationseconds} = $lastrundurationseconds;
         $thisparams{lastrunstatus} = $lastrunstatus;
         $thisparams{lastrunstatusmessage} = $lastrunstatusmessage;
+        $thisparams{netxtrundatetime} = $nextrundatetime;
         my $job = DBD::MSSQL::Server::Job->new(
             %thisparams);
         add_job($job);
@@ -164,6 +165,7 @@ sub new {
     lastrundurationseconds => $params{lastrundurationseconds},
     lastrunstatus => lc $params{lastrunstatus},
     lastrunstatusmessage => $params{lastrunstatusmessage},
+    netxtrundatetime => $params{netxtrundatetime},
   };
   bless $self, $class;
   $self->init(%params);
@@ -184,18 +186,28 @@ sub nagios {
   my $self = shift;
   my %params = @_;
   if (! $self->{nagios_level}) {
-    if ($params{mode} =~ /server::jobs::failed/) {
+    if ($params{mode} =~ /server::jobs::failed/ ||
+        $params{mode} =~ /server::jobs::enabled/) {
       if ($self->{lastrunstatus} eq "failed") {
           $self->add_nagios_critical(
               sprintf "%s failed: %s", $self->{name}, $self->{lastrunstatusmessage});
       } elsif ($self->{lastrunstatus} eq "retry" || $self->{lastrunstatus} eq "canceled") {
           $self->add_nagios_warning(
               sprintf "%s %s: %s", $self->{name}, $self->{lastrunstatus}, $self->{lastrunstatusmessage});
+      } elsif ($params{mode} =~ /server::jobs::enabled/ && ! defined $self->{nextrundatetime}) {
+          $self->add_nagios_critical(
+              sprintf "%s is not enabled", $self->{name});
+      } elsif (! defined $self->{lastrundatetime}) {
+          $self->add_nagios_ok(
+              sprintf "%s did never run", $self->{name});
       } else {
         $self->add_nagios(
             $self->check_thresholds($self->{lastrundurationseconds}, 60, 300),
                 sprintf("job %s ran for %d seconds (started %s)", $self->{name}, 
                 $self->{lastrundurationseconds}, $self->{lastrundatetime}));
+        if ($params{mode} =~ /server::jobs::enabled/) {
+          $self->add_nagios_ok(sprintf "next run %s", $self->{nextrundatetime});
+        }
       }
     } 
   }
