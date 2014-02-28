@@ -769,7 +769,23 @@ sub init {
   } elsif ($params{mode} =~ /^server::database::transactions/) {
     $self->{transactions_s} = $self->{handle}->get_perf_counter_instance(
         'SQLServer:Databases', 'Transactions/sec', $self->{name});
-    if (! defined $self->{transactions_s}) {
+    my $autoclosed = 0;
+    if ($self->{name} ne '_Total' &&
+        DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+      my $sql = q{
+          SELECT is_cleanly_shutdown, CAST(DATABASEPROPERTYEX('?', 'isautoclose') AS VARCHAR)
+          FROM master.sys.databases WHERE name = '?'};
+      $sql =~ s/\?/$self->{name}/g;
+      my @autoclose = $self->{handle}->fetchrow_array($sql);
+      if ($autoclose[0] == 1 && $autoclose[1] == 1) {
+        $autoclosed = 1;
+      }
+    }
+    if ($autoclosed) {
+      $self->{transactions_s} = 0;
+      $self->{transactions_per_sec} = 0;
+      $self->valdiff(\%params, qw(transactions_s));
+    } elsif (! defined $self->{transactions_s}) {
       $self->add_nagios_unknown("unable to aquire counter data");
     } else {
       $self->valdiff(\%params, qw(transactions_s));

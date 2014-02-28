@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.20.2 2014-02-28
+- bugfix in transactions. handles databases with auto-close
+
 1.5.20.1 2014-01-07
 - update configure.ac
 - add mode jobs-enabled (Thanks Thomas Gelf)
