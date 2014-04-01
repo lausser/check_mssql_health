@@ -2,6 +2,11 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.20.3 2014-04-01
+- implement --negate old_level=new_level
+- output also ok-messages for my-modes
+- allow floating point numbers in thresholds
+
 1.5.20.2 2014-02-28
 - bugfix in transactions. handles databases with auto-close
 

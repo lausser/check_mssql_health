@@ -314,6 +314,7 @@ my @params = (
     "basis",
     "lookback|l=i",
     "environment|e=s%",
+    "negate=s%",
     "method=s",
     "runas|r=s",
     "scream",
@@ -590,6 +591,7 @@ my %params = (
     statefilesdir => $commandline{statefilesdir},
     verbose => $commandline{verbose},
     report => $commandline{report},
+    negate => $commandline{negate},
 );
 
 my $server = undef;
