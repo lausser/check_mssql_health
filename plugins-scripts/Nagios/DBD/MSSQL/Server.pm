@@ -772,7 +772,6 @@ sub calculate_result {
   foreach my $from (keys %{$self->{negate}}) {
     if ((uc $from) =~ /^(OK|WARNING|CRITICAL|UNKNOWN)$/ &&
         (uc $self->{negate}->{$from}) =~ /^(OK|WARNING|CRITICAL|UNKNOWN)$/) {
-(uc $from), (uc $self->{negate}->{$from}), $ERRORS{uc $from}, $self->{nagios_level};
       if ($self->{nagios_level} == $ERRORS{uc $from}) {
         $self->{nagios_level} = $ERRORS{uc $self->{negate}->{$from}};
       }
