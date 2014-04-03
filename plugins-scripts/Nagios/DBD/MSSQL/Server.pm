@@ -35,6 +35,7 @@ sub new {
   my $class = shift;
   my %params = @_;
   my $self = {
+    mode => $params{mode},
     method => $params{method} || "dbi",
     hostname => $params{hostname},
     username => $params{username},
@@ -47,6 +48,7 @@ sub new {
     verbose => $params{verbose},
     report => $params{report},
     negate => $params{negate},
+    labelformat => $params{labelformat},
     version => 'unknown',
     os => 'unknown',
     servicename => 'unknown',
