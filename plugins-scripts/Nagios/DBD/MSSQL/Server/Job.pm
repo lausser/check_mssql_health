@@ -202,7 +202,7 @@ sub nagios {
               sprintf "%s did never run", $self->{name});
       } else {
         $self->add_nagios(
-            $self->check_thresholds($self->{lastrundurationseconds}, $self->{warningrange}, $self->{criticalrange}),
+            $self->check_thresholds($self->{lastrundurationseconds}, (defined $self->{warningrange}) ? $self->{warningrange} : 60, (defined $self->{criticalrange}) ? $self->{criticalrange} : 300),
                 sprintf("job %s ran for %d seconds (started %s)", $self->{name}, 
                 $self->{lastrundurationseconds}, $self->{lastrundatetime}));
         if ($params{mode} =~ /server::jobs::enabled/) {
