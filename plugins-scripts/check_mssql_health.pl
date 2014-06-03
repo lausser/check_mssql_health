@@ -212,6 +212,8 @@ EOUS
        if mode database-free finds a database which is currently offline,
        a WARNING is issued. If you don't want this and if offline databases
        are perfectly ok for you, then add --offlineok. You will get OK instead.
+    --commit
+       turns on autocommit for the dbd::sybase module
 
   Database-related modes check all databases in one run by default.
   If only a single database should be checked, use the --name parameter.
@@ -326,6 +328,7 @@ my @params = (
     "statefilesdir=s",
     "with-mymodules-dyn-dir=s",
     "report=s",
+    "commit",
     "labelformat=s",
     "extra-opts:s");
 
@@ -387,6 +390,12 @@ if (exists $commandline{report}) {
   # short, long, html
 } else {
   $commandline{report} = "long";
+}
+
+if (exists $commandline{commit}) {
+  $commandline{commit} = 1;
+} else {
+  $commandline{commit} = 0;
 }
 
 if (exists $commandline{labelformat}) {
@@ -598,6 +607,7 @@ my %params = (
     statefilesdir => $commandline{statefilesdir},
     verbose => $commandline{verbose},
     report => $commandline{report},
+    commit => $commandline{commit},
     labelformat => $commandline{labelformat},
     negate => $commandline{negate},
 );

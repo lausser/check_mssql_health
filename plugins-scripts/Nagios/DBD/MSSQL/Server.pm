@@ -47,6 +47,7 @@ sub new {
     criticalrange => $params{criticalrange},
     verbose => $params{verbose},
     report => $params{report},
+    commit => $params{commit},
     negate => $params{negate},
     labelformat => $params{labelformat},
     version => 'unknown',
@@ -1255,6 +1256,7 @@ sub new {
     username => $params{username},
     password => $params{password},
     verbose => $params{verbose},
+    commit => $params{commit},
     port => $params{port} || 1433,
     server => $params{server},
     currentdb => $params{currentdb},
@@ -1397,7 +1399,7 @@ sub init {
       $self->{errstr} = "Please specify hostname or server, username and password";
       return undef;
     }
-    $self->{dbi_options} = { RaiseError => 1, AutoCommit => 0, PrintError => 1 };
+    $self->{dbi_options} = { RaiseError => 1, AutoCommit => $self->{commit}, PrintError => 1 };
     $self->{dsn} = "DBI:Sybase:";
     if ($self->{hostname}) {
       $self->{dsn} .= sprintf ";host=%s", $self->{hostname};
@@ -2220,7 +2222,7 @@ sub init {
               $self->{hostname}, $self->{port}),
         $self->{username},
         $self->{password},
-        { RaiseError => 1, AutoCommit => 0, PrintError => 1 })) {
+        { RaiseError => 1, AutoCommit => $self->{commit}, PrintError => 1 })) {
       } else {
         $self->{errstr} = DBI::errstr();
       }
