@@ -128,7 +128,10 @@ sub init {
         DBD::MSSQL::Server::Job::return_jobs()) {
       $self->{jobs} = \@jobs;
     } else {
-      $self->add_nagios_critical(sprintf "no jobs ran within the last %d minutes", $params{lookback});
+      $self->add_nagios(
+          defined $params{mitigation} ? $params{mitigation} : 2,
+          sprintf "no jobs ran within the last %d minutes", $params{lookback}
+      );
     }
   } elsif ($params{mode} =~ /^server::connectiontime/) {
     $self->{connection_time} = $self->{tac} - $self->{tic};

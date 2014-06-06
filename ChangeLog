@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.20.5 2014-06-06
+- allow mitigation for failed-jobs if no jobs were run
+
 1.5.20.4 2014-06-03
 - add --commit which forces auto-commit on
 
