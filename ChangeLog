@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.20.6 2014-07-18
+- bugfix in database-backup-age. incremental backups are no longer ignored
+
 1.5.20.5 2014-06-06
 - allow mitigation for failed-jobs if no jobs were run
 
