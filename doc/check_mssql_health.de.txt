@@ -301,11 +301,42 @@ Danach adressiert man die Instanzen z.B. mit *--server dbsrv1instance02*. Ansons
 
 Download
 --------
-http://labs.consol.de/download/shinken-nagios-plugins/check_mssql_health-1.5.19.tar.gz[check_mssql_health-1.5.19.tar.gz]
+http://labs.consol.de/download/shinken-nagios-plugins/check_mssql_health-1.5.20.6.tar.gz[check_mssql_health-1.5.20.6.tar.gz]
 
 
 Changelog
 ---------
+
+* 1.5.20.6 2014-07-18
++
+bugfix in database-backup-age. incremental backups are no longer ignored
+
+* 1.5.20.5 2014-06-06
++
+allow mitigation for failed-jobs if no jobs were run
+
+* 1.5.20.4 2014-06-03
++
+add --commit which forces auto-commit on
+
+* 1.5.20.3 2014-04-01
++
+implement --negate old_level=new_level
+output also ok-messages for my-modes
+allow floating point numbers in thresholds
+
+* 1.5.20.2 2014-02-28
++
+bugfix in transactions. handles databases with auto-close
+
+* 1.5.20.1 2014-01-07
++
+update configure.ac
+add mode jobs-enabled (Thanks Thomas Gelf)
+
+* 1.5.20 2013-12-06
++
+handle wrong io_busy and cpu_busy values (hickups of 500% caused by counter overflows are replaced by the last valid value. if the error persists dirung 5 plugin runs the obviously wrong value is reported)
 
 * 1.5.19.3 2013-09-11
 +
