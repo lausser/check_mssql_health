@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.21 2014-12-09
+- add selectedperfdata
+
 1.5.20.6 2014-07-18
 - bugfix in database-backup-age. incremental backups are no longer ignored
 

@@ -49,6 +49,7 @@ sub new {
     report => $params{report},
     commit => $params{commit},
     negate => $params{negate},
+    selectedperfdata => $params{selectedperfdata},
     labelformat => $params{labelformat},
     version => 'unknown',
     os => 'unknown',
@@ -784,7 +785,19 @@ sub calculate_result {
     }
   }
   if ($self->{labelformat} eq "pnp4nagios") {
-    $self->{perfdata} = join(" ", @{$self->{nagios}->{perfdata}});
+    $self->{perfdata} = join(" ", grep {
+        if ($self->{selectedperfdata}) {
+          /^(.*?)=/;
+          my $label = $1;
+          if ($label =~ /$self->{selectedperfdata}/) {
+            1;
+          } else {
+            0;
+          }
+        } else {
+          1;
+        }
+    } @{$self->{nagios}->{perfdata}});
   } else {
     $self->{perfdata} = join(" ", map {
         my $perfdata = $_;

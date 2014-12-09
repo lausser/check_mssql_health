@@ -330,6 +330,7 @@ my @params = (
     "report=s",
     "commit",
     "labelformat=s",
+    "selectedperfdata=s",
     "extra-opts:s");
 
 if (! GetOptions(\%commandline, @params)) {
@@ -609,6 +610,7 @@ my %params = (
     report => $commandline{report},
     commit => $commandline{commit},
     labelformat => $commandline{labelformat},
+    selectedperfdata => $commandline{selectedperfdata},
     negate => $commandline{negate},
 );
 
