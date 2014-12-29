@@ -2,6 +2,9 @@
 # Changelog of the check_mssql_health plugin #
 ###############################################
 
+1.5.21.1 2014-12-29
+- report sql errors in mode sql-runtime
+
 1.5.21 2014-12-09
 - add selectedperfdata
 

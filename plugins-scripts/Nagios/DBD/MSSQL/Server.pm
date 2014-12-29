@@ -518,6 +518,7 @@ sub nagios {
       $self->add_perfdata(sprintf "sql_runtime=%.4f;%d;%d",
           $self->{runtime},
           $self->{warningrange}, $self->{criticalrange});
+      $self->add_nagios_unknown($self->{handle}->{errstr}) if $self->{handle}->{errstr};
     } elsif ($params{mode} =~ /^server::sql/) {
       if ($params{regexp}) {
         if (substr($params{name2}, 0, 1) eq '!') {
@@ -1628,12 +1629,21 @@ sub exec_sp_1hash {
 sub execute {
   my $self = shift;
   my $sql = shift;
+  my $stderrvar;
+  *SAVEERR = *STDERR;
+  open ERR ,'>',\$stderrvar;
+  *STDERR = *ERR;
   eval {
     my $sth = $self->{handle}->prepare($sql);
     $sth->execute();
   };
+  *STDERR = *SAVEERR;
+  $self->{errstr} = join("\n", (split(/\n/, $self->{errstr}), $stderrvar)) if $stderrvar;
   if ($@) {
-    printf STDERR "bumm %s\n", $@;
+    $self->trace(sprintf "bumm %s", $@);
+  }
+  if ($stderrvar) {
+    $self->trace(sprintf "stderr %s", $self->{errstr}) ;
   }
 }
 
