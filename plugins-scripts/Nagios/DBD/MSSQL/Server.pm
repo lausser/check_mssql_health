@@ -1512,7 +1512,11 @@ sub fetchrow_array {
     } else {
       $sth->execute() || die DBI::errstr();
     }
-    if (lc $sql =~ /^\s*(exec |sp_)/ || $sql =~ /^\s*exec sp/im) {
+    if (lc $sql =~ /^\s*declare.*(exec |sp_)/ ||
+        $sql =~ /^\s*declare.*exec sp/im) {
+      @row = $sth->syb_output_params();
+    } elsif (lc $sql =~ /^\s*(exec |sp_)/ ||
+        $sql =~ /^\s*exec sp/im) {
       # flatten the result sets
       do {
         while (my $aref = $sth->fetchrow_arrayref()) {
