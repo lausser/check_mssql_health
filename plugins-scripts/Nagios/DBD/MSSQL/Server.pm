@@ -1512,13 +1512,8 @@ sub fetchrow_array {
     } else {
       $sth->execute() || die DBI::errstr();
     }
-    if (lc $sql =~ /^\s*(exec |sp_)/ || $sql =~ /^\s*exec sp/im) {
-      # flatten the result sets
-      do {
-        while (my $aref = $sth->fetchrow_arrayref()) {
-          push(@row, @{$aref});
-        }
-      } while ($sth->{syb_more_results});
+    if (lc $sql =~ /(exec |sp_)/) {
+      @row = $sth->syb_output_params();
     } else {
       @row = $sth->fetchrow_array();
     }
