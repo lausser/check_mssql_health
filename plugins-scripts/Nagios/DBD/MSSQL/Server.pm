@@ -518,7 +518,8 @@ sub nagios {
       $self->add_perfdata(sprintf "sql_runtime=%.4f;%d;%d",
           $self->{runtime},
           $self->{warningrange}, $self->{criticalrange});
-      $self->add_nagios_unknown($self->{handle}->{errstr}) if $self->{handle}->{errstr};
+      $self->add_nagios_unknown($self->{handle}->{errstr}) if 
+          $self->{handle}->{errstr} && ! (defined $params{mitigation} && $params{mitigation} == 0);
     } elsif ($params{mode} =~ /^server::sql/) {
       if ($params{regexp}) {
         if (substr($params{name2}, 0, 1) eq '!') {
