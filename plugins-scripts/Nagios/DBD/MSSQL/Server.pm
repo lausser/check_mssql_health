@@ -519,9 +519,13 @@ sub nagios {
           $self->{runtime},
           $self->{warningrange}, $self->{criticalrange});
       $self->add_nagios_unknown($self->{handle}->{errstr}) if 
-          $self->{handle}->{errstr} && ! (defined $params{mitigation} && $params{mitigation} == 0);
+          $self->{handle}->{errstr} && 
+              ! (defined $params{mitigation} && $params{mitigation} == 0);
     } elsif ($params{mode} =~ /^server::sql/) {
-      if ($params{regexp}) {
+      if ($self->{handle}->{errstr} && 
+          ! (defined $params{mitigation} && $params{mitigation} == 0)) {
+        $self->add_nagios_unknown($self->{handle}->{errstr}) 
+      } elsif ($params{regexp}) {
         if (substr($params{name2}, 0, 1) eq '!') {
           $params{name2} =~ s/^!//;
           if ($self->{genericsql} !~ /$params{name2}/) {
