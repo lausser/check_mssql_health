@@ -1257,6 +1257,16 @@ sub system_tmpdir {
   }
 }
 
+sub decode_password {
+  my $self = shift;
+  my $password = shift;
+  if ($password && $password =~ /^rfc3986:\/\/(.*)/) {
+    $password = $1;
+    $password =~ s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+  }
+  return $password;
+}
+
 
 package DBD::MSSQL::Server::Connection;
 
@@ -1464,7 +1474,7 @@ sub init {
       if ($self->{handle} = DBI->connect(
           $self->{dsn},
           $self->{username},
-          $self->{password},
+          $self->decode_password($self->{password}),
           $self->{dbi_options})) {
         $retval = $self;
       } else {
@@ -1714,6 +1724,7 @@ sub init {
     }
   }
   if (! exists $self->{errstr}) {
+    #$self->{password} = $self->decode_password($self->{password});
     eval {
       if (! exists $ENV{SQL_HOME}) {
         foreach my $path (split(';', $ENV{PATH})) {
@@ -1928,6 +1939,20 @@ sub create_commandfile {
   close CMDCMD;
 }
 
+sub decode_password {
+  my $self = shift;
+  my $password = shift;
+  $password = $self->SUPER::decode_password($password);
+  # we call '...%s/%s@...' inside backticks where the second %s is the password
+  # abc'xcv -> ''abc'\''xcv''
+  # abc'`xcv -> ''abc'\''\`xcv''
+  if ($password =~ /'/) {
+    $password = "'".join("\\'", map { "'".$_."'"; } split("'", $password))."'";
+  }
+  return $password;
+}
+
+
 package DBD::MSSQL::Server::Connection::Sqsh;
 
 use strict;
@@ -1979,6 +2004,7 @@ sub init {
     }
   }
   if (! exists $self->{errstr}) {
+    $self->{password} = $self->decode_password($self->{password});
     eval {
       if (! exists $ENV{SQL_HOME}) {
         if ($^O =~ /MSWin/) {
@@ -2212,6 +2238,20 @@ sub create_commandfile {
   close CMDCMD;
 }
 
+sub decode_password {
+  my $self = shift;
+  my $password = shift;
+  $password = $self->SUPER::decode_password($password);
+  # we call '...%s/%s@...' inside backticks where the second %s is the password
+  # abc'xcv -> ''abc'\''xcv''
+  # abc'`xcv -> ''abc'\''\`xcv''
+  if ($password =~ /'/) {
+    $password = "'".join("\\'", map { "'".$_."'"; } split("'", $password))."'";
+  }
+  return $password;
+}
+
+
 package DBD::MSSQL::Server::Connection::Sqlrelay;
 
 use strict;
@@ -2254,10 +2294,11 @@ sub init {
       if ($self->{handle} = DBI->connect(
           #sprintf("DBI:SQLRelay:host=%s;port=%d;socket=%s", 
           sprintf("DBI:SQLRelay:host=%s;port=%d;",
-              $self->{hostname}, $self->{port}),
-        $self->{username},
-        $self->{password},
-        { RaiseError => 1, AutoCommit => $self->{commit}, PrintError => 1 })) {
+          $self->{hostname}, $self->{port}),
+          $self->{username},
+          $self->decode_password($self->{password}),
+          { RaiseError => 1, AutoCommit => $self->{commit}, PrintError => 1 })) {
+        $retval = $self;
       } else {
         $self->{errstr} = DBI::errstr();
       }
