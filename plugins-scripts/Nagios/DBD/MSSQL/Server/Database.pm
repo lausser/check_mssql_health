@@ -159,6 +159,46 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         $initerrors = 1;
         return undef;
       }
+    } elsif ($params{mode} =~ /server::database::size/) {
+      my @databaseresult = ();
+      if ($params{product} eq "MSSQL") {
+        if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+          @databaseresult = $params{handle}->fetchall_array(q{
+            SELECT
+                d.name as name,
+                ROUND(SUM(mf.size)* 8 / 1024, 0) as size
+            FROM
+                sys.master_files as mf
+            JOIN
+                sys.databases d ON d.database_id = mf.database_id
+            WHERE
+                d.database_id> 4
+            GROUP BY
+                d.name
+          });
+        }
+      }
+      foreach (@databaseresult) {
+        my ($name, $size) = @{$_};
+        next if $params{notemp} && $name eq "tempdb";
+        next if $params{database} && $name ne $params{database};
+        if ($params{regexp}) {
+          next if $params{selectname} && $name !~ /$params{selectname}/;
+        } else {
+          next if $params{selectname} && lc $params{selectname} ne lc $name;
+        }
+        my %thisparams = %params;
+        $thisparams{name} = $name;
+        $thisparams{size} = $size;
+        my $database = DBD::MSSQL::Server::Database->new(
+            %thisparams);
+        add_database($database);
+        $num_databases++;
+      }
+      if (! $num_databases) {
+        $initerrors = 1;
+        return undef;
+      }
     } elsif ($params{mode} =~ /server::database::auto(growths|shrinks)/) {
       my @databasenames = ();
       my @databaseresult = ();
@@ -446,6 +486,7 @@ sub new {
     backup_duration => $params{backup_duration},
     autogrowshrink => $params{autogrowshrink},
     growshrinkinterval => $params{growshrinkinterval},
+    size => $params{size},
     state => $params{state},
     state_desc => $params{state_desc} ? lc $params{state_desc} : undef,
     collation_name => $params{collation_name},
@@ -809,6 +850,9 @@ sub nagios {
 	printf "%s\n", $_->{logicalfilename};
       }
       $self->add_nagios_ok("have fun");
+    } elsif ($params{mode} =~ /server::database::size/) {
+      $self->add_nagios_ok(sprintf "%s is %sMB", $self->{name}, $self->{size});
+      $self->add_perfdata(sprintf "\'%s\'=%i", lc $self->{name}, $self->{size});
     } elsif ($params{mode} =~ /server::database::online/) {
       if ($self->{state_desc} eq "online") {
         if ($self->{collation_name}) {
