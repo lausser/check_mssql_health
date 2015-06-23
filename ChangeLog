@@ -1,189 +1,137 @@
-###############################################
-# Changelog of the check_mssql_health plugin #
-###############################################
-
-1.6 - 2015-04-23
-- add rfc3986-encoded passwords
-
-1.5.21.3 2015-02-20
-- handle and mitigate sql errors in mode sql
-
-1.5.21.2 2014-01-08
-- mitigate sql errors in mode sql-runtime
-- bugfix in fetch() for storec procedures with output params (Thanks lockland)
-
-1.5.21.1 2014-12-29
-- report sql errors in mode sql-runtime
-
-1.5.21 2014-12-09
-- add selectedperfdata
-
-1.5.20.6 2014-07-18
-- bugfix in database-backup-age. incremental backups are no longer ignored
-
-1.5.20.5 2014-06-06
-- allow mitigation for failed-jobs if no jobs were run
-
-1.5.20.4 2014-06-03
-- add --commit which forces auto-commit on
-
-1.5.20.3 2014-04-01
-- implement --negate old_level=new_level
-- output also ok-messages for my-modes
-- allow floating point numbers in thresholds
-
-1.5.20.2 2014-02-28
-- bugfix in transactions. handles databases with auto-close
-
-1.5.20.1 2014-01-07
-- update configure.ac
-- add mode jobs-enabled (Thanks Thomas Gelf)
-
-1.5.20 2013-12-06
-- handle wrong io_busy and cpu_busy values (hickups of 500% caused by counter overflows
+* 1.6 - 2015-04-23
+  add rfc3986-encoded passwords
+* 1.5.21.3 2015-02-20
+  handle and mitigate sql errors in mode sql
+* 1.5.21.2 2014-01-08
+  mitigate sql errors in mode sql-runtime
+  bugfix in fetch() for storec procedures with output params (Thanks lockland)
+* 1.5.21.1 2014-12-29
+  report sql errors in mode sql-runtime
+* 1.5.21 2014-12-09
+  add selectedperfdata
+* 1.5.20.6 2014-07-18
+  bugfix in database-backup-age. incremental backups are no longer ignored
+* 1.5.20.5 2014-06-06
+  allow mitigation for failed-jobs if no jobs were run
+* 1.5.20.4 2014-06-03
+  add --commit which forces auto-commit on
+* 1.5.20.3 2014-04-01
+  implement --negate old_level=new_level
+  output also ok-messages for my-modes
+  allow floating point numbers in thresholds
+* 1.5.20.2 2014-02-28
+  bugfix in transactions. handles databases with auto-close
+* 1.5.20.1 2014-01-07
+  update configure.ac
+  add mode jobs-enabled (Thanks Thomas Gelf)
+* 1.5.20 2013-12-06
+  handle wrong io_busy and cpu_busy values (hickups of 500% caused by counter overflows
   are replaced by the last valid value. if the error persists dirung 5 plugin runs
   the obviously wrong value is reported)
-
-1.5.19.3 2013-09-11
-- fix an uninitialized state_desc
-
-1.5.19.2 2013-09-06
-- parameter --notemp is now usable for many modes
-
-1.5.19.1 2013-05-27
-- fixed a bug in batch-requests, which affected case sensitive colletion systems like SAP (Thanks Andreas Seemueller)
-
-1.5.19 2013-02-28
-- rewrote database-free for sybase
-
-1.5.18.1 2013-01-22
-- fixed a bug in sybase database-free
-
-1.5.18 2012-01-03
-- added asciidoc
-
-1.5.17 2012-12-20
-- fixed a bug in database-free for sybase (many thanks to siemens audiologische technik gmbh!!)
-
-1.5.16 2012-11-29
-- fixed a bug in database-free (where the offline state of 1 db was propagated to some others)
-- implemented all sorts of thresholds
-- add mode sql-runtime
-
-1.5.15.2 2012-11-22
-- catch generic error-messages
-
-1.5.15.1 2012-11-19
-- catch a "insufficient-rights"-error-message
-
-1.5.15 2012-11-16
-- add parameter mitigation (which can reduce errorlevels for offline databases or dbs which were never backed up)
-- tracedebug ouputs a bit more information now 
-
-1.5.14 2012-11-07
-- database-free can now handle offline databases 
-- add --offlineok
-- exclude dbs with recovery model simple from database-logbackup-age
-
-1.5.13 2012-10-25
-- add failed-jobs
-- add database-online
-
-1.5.12 2012-10-24
-- add database-file-auto-growths (and database-logfile-auto-growths, database-datafile-auto-growths)
-- add database-file-auto-shrinks (and database-logfile-auto-growths, database-datafile-auto-growths)
-- add database-file-dbcc-shrinks
-
-1.5.11 2012-07-05
-- add selects for cpu-busy to see the return values with -v
-- add some enhancements writen by Pall Sigurdsson
-
-1.5.10 2012-06-27
-- split database-backup-age to database-backup-age and database-logbackup-age (Thanks Simon Meggle)
-- fix warnings for newer Perl versions
-- fix cpu-busy & io-busy
-
-1.5.9.3 2012-04-12
-- fix warnings for newer Perl versions (Thanks Stephan Classen)
-
-1.5.9.2 2012-03-15
-- bugfix in timeout-alarm handling under windows
-
-1.5.9.1 2011-09-19
-- fix a bug in --currentdb (with a "-" in the database name"). (Thanks Markus Stollwerk)
-- single ticks around the --name argument under Windows CMD will be removed auto matically
-
-1.5.9 2011-08-12
-- fix a bug in save_state for statefilesdirs with capial letters
-
-1.5.8.4 2011-06-29
-- fix a bug in sybase chained transaction handling
-
-1.5.8.3 2011-06-03
-- sites in an OMD (http://omdistro.org) environment have now private statefile directories
-- fix a bug in extra-opts
-- conection-time, connected-users, database-free and backup-age can be used with sybase ase 15.x servers
-
-1.5.8.2 2011-01-19
-- output a nicer error message if a sqlrelay connection fails
-
-1.5.8.1 2011-01-03
-- bugfix in --mode sql (numeric vs. regexp result)
-
-1.5.8 2010-12-20
-- mode sql can now have a non-numerical output which is compared to a string/regexp
-- new parameter --dbthresholds
-- new mode report can be used to output only the bad news (short,long,html)
-
-1.5.7 2010-09-10
-- fixed a bug in database-free (too much free space was calculated when more than one datafile of a database was on the same filesystem). (Thanks Juergen Essberger)
-- new parameter extra-opts
-
-1.5.6 2010-08-12
-- new parameter --dbthresholds. thresholds can now also be deposited in the table check_mssql_health_thresholds
-- added --currentdb so that the plugin can connect to a non-default database
-- --with-mymodules-dyn-dir on the commandline overrides the configure-option of the same name
-
-1.5.5
-- backup-age is now an alias for the "official" database-backup-age
-- catch the "can't change context to database" error
-- --mode sqlcmd
-
-1.5.3 2009-11-02
-- fixed a bug in mode database-free (results are more accurate now)
-- added new mode backup-age which checks the age (in hours) of the last backup
-
-1.5.2
-- fixed a bug where database names with special characters showed errors. (Thanks Hugh Ranalli) 
-
-1.5.1 2009-05-26
-- added --server which can be used instead of --hostname/port (Thanks Mark Monaghan)
-- lots of fixes. sql server 2000 should now be fully supported. (Thanks Mereghetti Stefano)
-- --warning/--critical were ignored for memory-pool-related modes (Thanks Mereghetti Stefano)
-
-1.5.0.2 2009-05-05
-- fixed a bug which led to error messages when using the plugin with sql server 2000 (Thanks Christian Mies)
-- fixed a bug so sql server 2000 can list-databases (Thanks Mereghetti Stefano)
-
-1.5.0.1 2009-04-29
-- added a security advice to the README (Thanks Mathieu Barret)
-- fixed a bug in database-free (Thanks Michael Luebben)
-- fixed a typo (Thanks Bernd Staudacher)
-
-1.5 - 2009-03-20
-- rewrote database-free so that unrestricted growth is taken into account (limit is disk)
-- added support for SQLRelay
-
-1.2 - 2009-03-19
-- added support for object_name <> SQLServer:... (this caused "unable to aquire"-errors sometimes)
-- fixed a bug in the PNP template
-
-1.1 - 2009-03-11
-- added modes: transactions, latches-wait-time, locks-waits, locks-timeouts,
+* 1.5.19.3 2013-09-11
+  fix an uninitialized state_desc
+* 1.5.19.2 2013-09-06
+  parameter --notemp is now usable for many modes
+* 1.5.19.1 2013-05-27
+  fixed a bug in batch-requests, which affected case sensitive colletion systems like SAP (Thanks Andreas Seemueller)
+* 1.5.19 2013-02-28
+  rewrote database-free for sybase
+* 1.5.18.1 2013-01-22
+  fixed a bug in sybase database-free
+* 1.5.18 2012-01-03
+  added asciidoc
+* 1.5.17 2012-12-20
+  fixed a bug in database-free for sybase (many thanks to siemens audiologische technik gmbh!!)
+* 1.5.16 2012-11-29
+  fixed a bug in database-free (where the offline state of 1 db was propagated to some others)
+  implemented all sorts of thresholds
+  add mode sql-runtime
+* 1.5.15.2 2012-11-22
+  catch generic error-messages
+* 1.5.15.1 2012-11-19
+  catch a "insufficient-rights"-error-message
+* 1.5.15 2012-11-16
+  add parameter mitigation (which can reduce errorlevels for offline databases or dbs which were never backed up)
+  tracedebug ouputs a bit more information now 
+* 1.5.14 2012-11-07
+  database-free can now handle offline databases 
+  add --offlineok
+  exclude dbs with recovery model simple from database-logbackup-age
+* 1.5.13 2012-10-25
+  add failed-jobs
+  add database-online
+* 1.5.12 2012-10-24
+  add database-file-auto-growths (and database-logfile-auto-growths, database-datafile-auto-growths)
+  add database-file-auto-shrinks (and database-logfile-auto-growths, database-datafile-auto-growths)
+  add database-file-dbcc-shrinks
+* 1.5.11 2012-07-05
+  add selects for cpu-busy to see the return values with -v
+  add some enhancements writen by Pall Sigurdsson
+* 1.5.10 2012-06-27
+  split database-backup-age to database-backup-age and database-logbackup-age (Thanks Simon Meggle)
+  fix warnings for newer Perl versions
+  fix cpu-busy & io-busy
+* 1.5.9.3 2012-04-12
+  fix warnings for newer Perl versions (Thanks Stephan Classen)
+* 1.5.9.2 2012-03-15
+  bugfix in timeout-alarm handling under windows
+* 1.5.9.1 2011-09-19
+  fix a bug in --currentdb (with a "-" in the database name"). (Thanks Markus Stollwerk)
+  single ticks around the --name argument under Windows CMD will be removed auto matically
+* 1.5.9 2011-08-12
+  fix a bug in save_state for statefilesdirs with capial letters
+* 1.5.8.4 2011-06-29
+  fix a bug in sybase chained transaction handling
+* 1.5.8.3 2011-06-03
+  sites in an OMD (http://omdistro.org) environment have now private statefile directories
+  fix a bug in extra-opts
+  conection-time, connected-users, database-free and backup-age can be used with sybase ase 15.x servers
+* 1.5.8.2 2011-01-19
+  output a nicer error message if a sqlrelay connection fails
+* 1.5.8.1 2011-01-03
+  bugfix in --mode sql (numeric vs. regexp result)
+* 1.5.8 2010-12-20
+  mode sql can now have a non-numerical output which is compared to a string/regexp
+  new parameter --dbthresholds
+  new mode report can be used to output only the bad news (short,long,html)
+* 1.5.7 2010-09-10
+  fixed a bug in database-free (too much free space was calculated when more than one datafile of a database was on the same filesystem). (Thanks Juergen Essberger)
+  new parameter extra-opts
+* 1.5.6 2010-08-12
+  new parameter --dbthresholds. thresholds can now also be deposited in the table check_mssql_health_thresholds
+  added --currentdb so that the plugin can connect to a non-default database
+  --with-mymodules-dyn-dir on the commandline overrides the configure-option of the same name
+* 1.5.5
+  backup-age is now an alias for the "official" database-backup-age
+  catch the "can't change context to database" error
+  --mode sqlcmd
+* 1.5.3 2009-11-02
+  fixed a bug in mode database-free (results are more accurate now)
+  added new mode backup-age which checks the age (in hours) of the last backup
+* 1.5.2
+  fixed a bug where database names with special characters showed errors. (Thanks Hugh Ranalli) 
+* 1.5.1 2009-05-26
+  added --server which can be used instead of --hostname/port (Thanks Mark Monaghan)
+  lots of fixes. sql server 2000 should now be fully supported. (Thanks Mereghetti Stefano)
+  --warning/--critical were ignored for memory-pool-related modes (Thanks Mereghetti Stefano)
+* 1.5.0.2 2009-05-05
+  fixed a bug which led to error messages when using the plugin with sql server 2000 (Thanks Christian Mies)
+  fixed a bug so sql server 2000 can list-databases (Thanks Mereghetti Stefano)
+* 1.5.0.1 2009-04-29
+  added a security advice to the README (Thanks Mathieu Barret)
+  fixed a bug in database-free (Thanks Michael Luebben)
+  fixed a typo (Thanks Bernd Staudacher)
+* 1.5 - 2009-03-20
+  rewrote database-free so that unrestricted growth is taken into account (limit is disk)
+  added support for SQLRelay
+* 1.2 - 2009-03-19
+  added support for object_name <> SQLServer:... (this caused "unable to aquire"-errors sometimes)
+  fixed a bug in the PNP template
+* 1.1 - 2009-03-11
+  added modes: transactions, latches-wait-time, locks-waits, locks-timeouts,
                locks-deadlocks, sql-recompilations, total-server-memory
-- beautified the PNP template
-- fixed counter rollovers after database restart
-
-1.0 - 2009-03-10
+  beautified the PNP template
+  fixed counter rollovers after database restart
+* 1.0 - 2009-03-10
 ----------------
-- Initial release
+  Initial release
