@@ -301,10 +301,11 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
       }
     } elsif ($params{mode} =~ /server::database::.*backupage/) {
       my @databaseresult = ();
-      if ($params{product} eq "MSSQL") {
+      my $sql;
+
         if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
           if ($params{mode} =~ /server::database::backupage/) {
-            @databaseresult = $params{handle}->fetchall_array(q{
+            $sql = q{
               SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
               FROM sys.databases D
               LEFT JOIN (
@@ -315,10 +316,13 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
                 WHERE BS.type IN ('D', 'I')
                 GROUP BY BS.[database_name]
               ) BS1 ON D.name = BS1.[database_name]
+              %s
               ORDER BY D.[name];
-            });
+            };
+            $sql = sprintf($sql, ( $params{offlineok} ) ? 'WHERE (6 & D.state) != 6' : '');
+
           } elsif ($params{mode} =~ /server::database::logbackupage/) {
-            @databaseresult = $params{handle}->fetchall_array(q{
+            $sql = q{
               SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
               FROM sys.databases D
               LEFT JOIN (
@@ -329,27 +333,49 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
                 WHERE BS.type = 'L'
                 GROUP BY BS.[database_name]
               ) BS1 ON D.name = BS1.[database_name]
+              %s
               ORDER BY D.[name];
-            });
+            };
+            $sql = sprintf($sql, ( $params{offlineok} ) ? 'WHERE (6 & D.state) != 6' : '');
           }
-        } else {
-          @databaseresult = $params{handle}->fetchall_array(q{
+        } elsif (DBD::MSSQL::Server::return_first_server()->version_is_minimum("8.x")) {
+          # there is no recovery_model column on sql server 2000, so we use a database property
+          $sql = q {
             SELECT
               a.name,
-              CASE databasepropertyex(a.name, 'Recovery')
-                WHEN 'FULL' THEN 1
-                WHEN 'BULK_LOGGED' THEN 2
-                WHEN 'SIMPLE' THEN 3
-                ELSE 0
-              END AS recovery_model,
+              recovery_model = (
+                CASE
+                  WHEN databasepropertyex(a.name, 'Recovery') = 'FULL'   THEN 1
+                  WHEN databasepropertyex(a.name, 'Recovery') = 'SIMPLE' THEN 3
+                  ELSE 0
+                END
+              ),
               DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
               DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
             FROM master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
             ON b.database_name = a.name
-            GROUP BY a.name 
-            ORDER BY a.name 
-          }); 
+            %s
+            GROUP BY a.name, a.status
+            ORDER BY a.name
+          };
+          $sql = sprintf($sql, ( $params{offlineok} ) ? 'WHERE (512 & a.status) != 512' : '');
+        } else {
+          $sql = q{
+            SELECT
+              a.name, a.recovery_model,
+              DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
+              DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
+            FROM master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
+            ON b.database_name = a.name
+            %s
+            GROUP BY a.name, a.status
+            ORDER BY a.name
+          };
+          $sql = sprintf($sql, ( $params{offlineok} ) ? 'WHERE (512 & a.status) != 512' : '');
         }
+
+        @databaseresult = $params{handle}->fetchall_array($sql);
+
         foreach (sort {
           if (! defined $b->[1]) {
             return 1;
