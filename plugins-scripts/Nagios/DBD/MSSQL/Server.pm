@@ -775,6 +775,14 @@ sub calculate_result {
   if (exists $self->{identstring}) {
     $self->{nagios_message} .= $self->{identstring};
   }
+  if ($multiline) {
+    my $num_ok =  @{$self->{nagios}->{messages}->{ $ERRORS{"OK"} } };
+    my $num_crit =  @{$self->{nagios}->{messages}->{  $ERRORS{"CRITICAL"} }};
+    my $num_warn =  @{$self->{nagios}->{messages}->{  $ERRORS{"WARNING"} }};
+    my $num_unk =  @{$self->{nagios}->{messages}->{  $ERRORS{"UNKNOWN"} }};
+    $self->{nagios_message} .= sprintf "%s ok, %s warnings, %s criticals and %s unknown\n",
+    $num_ok, $num_warn,$num_crit, $num_unk;
+  }
   if ($self->{report} eq "long") {
     $self->{nagios_message} .= $all_messages;
   } elsif ($self->{report} eq "short") {
