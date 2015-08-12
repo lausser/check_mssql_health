@@ -1946,7 +1946,7 @@ sub decode_password {
   # we call '...%s/%s@...' inside backticks where the second %s is the password
   # abc'xcv -> ''abc'\''xcv''
   # abc'`xcv -> ''abc'\''\`xcv''
-  if ($password =~ /'/) {
+  if ($password && $password =~ /'/) {
     $password = "'".join("\\'", map { "'".$_."'"; } split("'", $password))."'";
   }
   return $password;
@@ -2245,7 +2245,7 @@ sub decode_password {
   # we call '...%s/%s@...' inside backticks where the second %s is the password
   # abc'xcv -> ''abc'\''xcv''
   # abc'`xcv -> ''abc'\''\`xcv''
-  if ($password =~ /'/) {
+  if ($password && $password =~ /'/) {
     $password = "'".join("\\'", map { "'".$_."'"; } split("'", $password))."'";
   }
   return $password;
