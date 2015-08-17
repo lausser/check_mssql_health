@@ -302,7 +302,37 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
     } elsif ($params{mode} =~ /server::database::.*backupage/) {
       my @databaseresult = ();
       if ($params{product} eq "MSSQL") {
-        if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+        if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("11.x")) {
+          if ($params{mode} =~ /server::database::backupage/) {
+            @databaseresult = $params{handle}->fetchall_array(q{
+              SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
+              FROM sys.databases D
+              LEFT JOIN (
+                SELECT BS.[database_name],
+                DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup,
+                DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
+                FROM msdb.dbo.backupset BS
+                WHERE BS.type IN ('D', 'I')
+                GROUP BY BS.[database_name]
+              ) BS1 ON D.name = BS1.[database_name]
+              ORDER BY D.[name];
+            });
+          } elsif ($params{mode} =~ /server::database::logbackupage/) {
+            @databaseresult = $params{handle}->fetchall_array(q{
+              SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
+              FROM sys.databases D
+              LEFT JOIN (
+                SELECT BS.[database_name],
+                DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup,
+                DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
+                FROM msdb.dbo.backupset BS
+                WHERE BS.type = 'L'
+                GROUP BY BS.[database_name]
+              ) BS1 ON D.name = BS1.[database_name]
+              ORDER BY D.[name];
+            });
+          }
+        } elsif (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
           if ($params{mode} =~ /server::database::backupage/) {
             @databaseresult = $params{handle}->fetchall_array(q{
               SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
@@ -772,6 +802,12 @@ sub init {
       $self->{free_percent} = 100 * $self->{free_mb} / $self->{max_mb};
       $self->{allocated_percent} = 100 * $self->{allocated_mb} / $self->{max_mb};
     }
+  } elsif ($params{mode} =~ /server::database::.*backupage/) {
+    if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("11.x")) {
+      $self->{preferred_replica} = $self->{handle}->fetchrow_array(q{
+        SELECT sys.fn_hadr_backup_is_preferred_replica(?)
+      }, $self->{name})
+    }
   } elsif ($params{mode} =~ /^server::database::transactions/) {
     $self->{transactions_s} = $self->{handle}->get_perf_counter_instance(
         'SQLServer:Databases', 'Transactions/sec', $self->{name});
@@ -981,6 +1017,10 @@ sub nagios {
           $self->check_thresholds($self->{autogrowshrink}, 1, 5), 
           sprintf "%s had %d DBCC Shrink events in the last %d minutes", $self->{name}, $self->{autogrowshrink}, $self->{growshrinkinterval});
     } elsif ($params{mode} =~ /server::database::.*backupage/) {
+      if (! $self->is_backup_node) {
+        $self->add_nagios_ok(sprintf "this is not the preferred replica for backups of %s", $self->{name});
+        return;
+      }
       my $log = "";
       if ($params{mode} =~ /server::database::logbackupage/) {
         $log = "log of ";
@@ -1008,6 +1048,19 @@ sub nagios {
             $self->{name}, $self->{backup_duration}); 
       }
     } 
+  }
+}
+
+sub is_backup_node {
+  my $self = shift;
+  if ($self->version_is_minimum("11.x")) {
+    if (exists $self->{preferred_replica} && $self->{preferred_replica} == 1) {
+      return 1;
+    } else {
+      return 0;
+    }
+  } else {
+    return 1;
   }
 }
 
