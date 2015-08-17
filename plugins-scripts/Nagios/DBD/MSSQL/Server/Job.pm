@@ -137,7 +137,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         $thisparams{lastrundurationseconds} = $lastrundurationseconds;
         $thisparams{lastrunstatus} = $lastrunstatus;
         $thisparams{lastrunstatusmessage} = $lastrunstatusmessage;
-        $thisparams{netxtrundatetime} = $nextrundatetime;
+        $thisparams{nextrundatetime} = $nextrundatetime;
         my $job = DBD::MSSQL::Server::Job->new(
             %thisparams);
         add_job($job);
@@ -165,7 +165,7 @@ sub new {
     lastrundurationseconds => $params{lastrundurationseconds},
     lastrunstatus => lc $params{lastrunstatus},
     lastrunstatusmessage => $params{lastrunstatusmessage},
-    netxtrundatetime => $params{netxtrundatetime},
+    nextrundatetime => $params{nextrundatetime},
   };
   bless $self, $class;
   $self->init(%params);
