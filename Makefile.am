@@ -4,6 +4,7 @@
 
 SUBDIRS = plugins-scripts t doc
 EXTRA_DIST = contrib
+ECHO=echo
 
 dist-hook:
 	rm -f t/var/tmp/*

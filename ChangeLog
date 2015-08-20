@@ -1,3 +1,7 @@
+* 1.6.2.2 2015-08-20
+  improve detection of preferred replica for backups
+* 1.6.2.1 2015-08-17
+  fix timeouts during sql statements
 * 1.6.2 2015-08-17
   handle replicated databases in backup-age
 * 1.6.1 - 2015-08-15

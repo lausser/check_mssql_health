@@ -804,9 +804,30 @@ sub init {
     }
   } elsif ($params{mode} =~ /server::database::.*backupage/) {
     if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("11.x")) {
-      $self->{preferred_replica} = $self->{handle}->fetchrow_array(q{
-        SELECT sys.fn_hadr_backup_is_preferred_replica(?)
-      }, $self->{name})
+      my @replicated_databases = $self->{handle}->fetchall_array(q{
+        SELECT
+          DISTINCT CS.database_name AS [DatabaseName]
+        FROM
+          master.sys.availability_groups AS AG
+        INNER JOIN
+          master.sys.availability_replicas AS AR ON AG.group_id = AR.group_id
+        INNER JOIN 
+          master.sys.dm_hadr_database_replica_cluster_states AS CS
+        ON
+          ar.replica_id = CS.replica_id
+        WHERE
+          CS.is_database_joined = 1 -- DB muss aktuell auch in AG aktiv sein
+      });
+      if (grep /^$self->{name}$/, @replicated_databases) {
+        # this database is part of an availability group
+        # find out if we are the preferred node, where the backup takes place
+        $self->{preferred_replica} = $self->{handle}->fetchrow_array(q{
+          SELECT sys.fn_hadr_backup_is_preferred_replica(?)
+        }, $self->{name});
+      } else {
+        # -> every node hat to be backupped, the db is local on every node
+        $self->{preferred_replica} = 1;
+      }
     }
   } elsif ($params{mode} =~ /^server::database::transactions/) {
     $self->{transactions_s} = $self->{handle}->get_perf_counter_instance(
