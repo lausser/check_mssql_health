@@ -1548,6 +1548,7 @@ sub fetchrow_array {
   $self->{errstr} = join("\n", (split(/\n/, $self->{errstr}), $stderrvar)) if $stderrvar;
   if ($@) {
     $self->trace(sprintf "bumm %s", $@);
+    $self->{errstr} = "timeout during sql statement" if $@ =~ "alarm";
   }
   if ($stderrvar) {
     $self->trace(sprintf "stderr %s", $self->{errstr}) ;
@@ -1600,6 +1601,7 @@ sub fetchall_array {
   $self->{errstr} = join("\n", (split(/\n/, $self->{errstr}), $stderrvar)) if $stderrvar;
   if ($@) {
     $self->trace(sprintf "bumm %s", $@);
+    $self->{errstr} = "timeout during sql statement" if $@ =~ "alarm";
     $rows = [];
   }
   if ($stderrvar) {
