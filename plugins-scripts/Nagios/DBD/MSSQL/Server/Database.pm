@@ -818,7 +818,7 @@ sub init {
         WHERE
           CS.is_database_joined = 1 -- DB muss aktuell auch in AG aktiv sein
       });
-      if (grep /^$self->{name}$/, @replicated_databases) {
+      if (grep { $self->{name} eq $_->[0] } @replicated_databases) {
         # this database is part of an availability group
         # find out if we are the preferred node, where the backup takes place
         $self->{preferred_replica} = $self->{handle}->fetchrow_array(q{
