@@ -302,7 +302,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
     } elsif ($params{mode} =~ /server::database::.*backupage/) {
       my @databaseresult = ();
       if ($params{product} eq "MSSQL") {
-        if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("11.x")) {
+        if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
           if ($params{mode} =~ /server::database::backupage/) {
             @databaseresult = $params{handle}->fetchall_array(q{
               SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
@@ -314,7 +314,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
                 FROM msdb.dbo.backupset BS
                 WHERE BS.type IN ('D', 'I')
                 GROUP BY BS.[database_name]
-              ) BS1 ON D.name = BS1.[database_name]
+              ) BS1 ON D.name = BS1.[database_name] WHERE D.source_database_id IS NULL
               ORDER BY D.[name];
             });
           } elsif ($params{mode} =~ /server::database::logbackupage/) {
@@ -328,37 +328,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
                 FROM msdb.dbo.backupset BS
                 WHERE BS.type = 'L'
                 GROUP BY BS.[database_name]
-              ) BS1 ON D.name = BS1.[database_name]
-              ORDER BY D.[name];
-            });
-          }
-        } elsif (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
-          if ($params{mode} =~ /server::database::backupage/) {
-            @databaseresult = $params{handle}->fetchall_array(q{
-              SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
-              FROM sys.databases D
-              LEFT JOIN (
-                SELECT BS.[database_name],
-                DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup,
-                DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
-                FROM msdb.dbo.backupset BS
-                WHERE BS.type IN ('D', 'I')
-                GROUP BY BS.[database_name]
-              ) BS1 ON D.name = BS1.[database_name]
-              ORDER BY D.[name];
-            });
-          } elsif ($params{mode} =~ /server::database::logbackupage/) {
-            @databaseresult = $params{handle}->fetchall_array(q{
-              SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
-              FROM sys.databases D
-              LEFT JOIN (
-                SELECT BS.[database_name],
-                DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup,
-                DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
-                FROM msdb.dbo.backupset BS
-                WHERE BS.type = 'L'
-                GROUP BY BS.[database_name]
-              ) BS1 ON D.name = BS1.[database_name]
+              ) BS1 ON D.name = BS1.[database_name] WHERE D.source_database_id IS NULL
               ORDER BY D.[name];
             });
           }

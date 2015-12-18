@@ -30,88 +30,89 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
       if ($params{product} eq "MSSQL") {
         if (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
           @jobresult = $params{handle}->fetchall_array(q{
-            SELECT 
-                [sJOB].[job_id] AS [JobID]
-                , [sJOB].[name] AS [JobName]
-                ,CURRENT_TIMESTAMP  --can be used for debugging
-                , CASE 
-                    WHEN [sJOBH].[run_date] IS NULL OR [sJOBH].[run_time] IS NULL THEN NULL
-                    ELSE datediff(Minute, CAST(
-                        CAST([sJOBH].[run_date] AS CHAR(8))
-                        + ' ' 
-                        + STUFF(
-                            STUFF(RIGHT('000000' + CAST([sJOBH].[run_time] AS VARCHAR(6)),  6)
-                                , 3, 0, ':')
-                                , 6, 0, ':')
-                        AS DATETIME), current_timestamp)
-                  END AS [MinutesSinceStart]
-                ,CAST(SUBSTRING(RIGHT('000000' + CAST([sJOBH].[run_duration] AS VARCHAR(6)), 6), 1, 2) AS INT) * 3600 +
-                 CAST(SUBSTRING(RIGHT('000000' + CAST([sJOBH].[run_duration] AS VARCHAR(6)), 6), 3, 2) AS INT) * 60 +
-                 CAST(SUBSTRING(RIGHT('000000' + CAST([sJOBH].[run_duration] AS VARCHAR(6)), 6), 5, 2) AS INT) AS LastRunDurationSeconds
-                , CASE 
-                    WHEN [sJOBH].[run_date] IS NULL OR [sJOBH].[run_time] IS NULL THEN NULL
-                    ELSE CAST(
-                            CAST([sJOBH].[run_date] AS CHAR(8))
-                            + ' ' 
-                            + STUFF(
-                                STUFF(RIGHT('000000' + CAST([sJOBH].[run_time] AS VARCHAR(6)),  6)
-                                    , 3, 0, ':')
-                                , 6, 0, ':')
-                            AS DATETIME)
-                  END AS [LastRunDateTime]
-                , CASE [sJOBH].[run_status]
+            SELECT
+                [sJOB].[job_id] AS [JobID],
+                [sJOB].[name] AS [JobName],
+                CURRENT_TIMESTAMP,  --can be used for debugging
+                CASE
+                    WHEN
+                        [sJOBH].[run_date] IS NULL OR [sJOBH].[run_time] IS NULL
+                    THEN
+                        NULL
+                    ELSE
+                        DATEDIFF(Minute, CAST(CAST([sJOBH].[run_date] AS CHAR(8)) + ' ' +
+                        STUFF(STUFF(RIGHT('000000' + CAST([sJOBH].[run_time] AS VARCHAR(6)),  6), 3, 0, ':'), 6, 0, ':') AS DATETIME), CURRENT_TIMESTAMP)
+                END AS [MinutesSinceStart],
+                CAST(SUBSTRING(RIGHT('00000000' + CAST([sJOBH].[run_duration] AS VARCHAR(8)), 8), 1, 4) AS INT) * 3600 +
+                CAST(SUBSTRING(RIGHT('00000000' + CAST([sJOBH].[run_duration] AS VARCHAR(8)), 8), 5, 2) AS INT) * 60 +
+                CAST(SUBSTRING(RIGHT('00000000' + CAST([sJOBH].[run_duration] AS VARCHAR(8)), 8), 7, 2) AS INT) AS LastRunDurationSeconds,
+                CASE
+                    WHEN
+                        [sJOBH].[run_date] IS NULL OR [sJOBH].[run_time] IS NULL
+                    THEN
+                        NULL
+                    ELSE
+                        CAST(
+                            CAST([sJOBH].[run_date] AS CHAR(8)) + ' ' +
+                            STUFF(STUFF(RIGHT('000000' + CAST([sJOBH].[run_time] AS VARCHAR(6)), 6), 3, 0, ':'), 6, 0, ':') AS DATETIME)
+                END AS [LastRunDateTime],
+                CASE [sJOBH].[run_status]
                     WHEN 0 THEN 'Failed'
                     WHEN 1 THEN 'Succeeded'
                     WHEN 2 THEN 'Retry'
                     WHEN 3 THEN 'Canceled'
                     WHEN 4 THEN 'Running' -- In Progress
-                  END AS [LastRunStatus]
-                , STUFF(
-                        STUFF(RIGHT('000000' + CAST([sJOBH].[run_duration] AS VARCHAR(6)),  6)
-                            , 3, 0, ':')
-                        , 6, 0, ':') 
-                    AS [LastRunDuration (HH:MM:SS)]
-                , [sJOBH].[message] AS [LastRunStatusMessage]
-                , CASE [sJOBSCH].[NextRunDate]
-                    WHEN 0 THEN NULL
-                    ELSE CAST(
-                            CAST([sJOBSCH].[NextRunDate] AS CHAR(8))
-                            + ' ' 
-                            + STUFF(
-                                STUFF(RIGHT('000000' + CAST([sJOBSCH].[NextRunTime] AS VARCHAR(6)),  6)
-                                    , 3, 0, ':')
-                                , 6, 0, ':')
-                            AS DATETIME)
-                  END AS [NextRunDateTime]
-            FROM 
+                    ELSE 'DidNeverRun'
+                END AS [LastRunStatus],
+                STUFF(STUFF(RIGHT('00000000' + CAST([sJOBH].[run_duration] AS VARCHAR(8)), 8), 5, 0, ':'), 8, 0, ':') AS [LastRunDuration (HH:MM:SS)],
+                [sJOBH].[message] AS [LastRunStatusMessage],
+                CASE [sJOBSCH].[NextRunDate]
+                    WHEN
+                        0
+                    THEN
+                        NULL
+                    ELSE
+                        CAST(
+                            CAST([sJOBSCH].[NextRunDate] AS CHAR(8)) + ' ' + STUFF(STUFF(RIGHT('000000' + CAST([sJOBSCH].[NextRunTime] AS VARCHAR(6)),  6), 3, 0, ':'), 6, 0, ':') AS DATETIME)
+                END AS [NextRunDateTime]
+            FROM
                 [msdb].[dbo].[sysjobs] AS [sJOB]
                 LEFT JOIN (
-                            SELECT
-                                [job_id]
-                                , MIN([next_run_date]) AS [NextRunDate]
-                                , MIN([next_run_time]) AS [NextRunTime]
-                            FROM [msdb].[dbo].[sysjobschedules]
-                            GROUP BY [job_id]
-                        ) AS [sJOBSCH]
-                    ON [sJOB].[job_id] = [sJOBSCH].[job_id]
+                    SELECT
+                        [job_id],
+                        MIN([next_run_date]) AS [NextRunDate],
+                        MIN([next_run_time]) AS [NextRunTime]
+                    FROM
+                        [msdb].[dbo].[sysjobschedules]
+                    GROUP BY
+                        [job_id]
+                ) AS [sJOBSCH]
+                ON
+                    [sJOB].[job_id] = [sJOBSCH].[job_id]
                 LEFT JOIN (
-                            SELECT 
-                                [job_id]
-                                , [run_date]
-                                , [run_time]
-                                , [run_status]
-                                , [run_duration]
-                                , [message]
-                                , ROW_NUMBER() OVER (
-                                                        PARTITION BY [job_id] 
-                                                        ORDER BY [run_date] DESC, [run_time] DESC
-                                  ) AS RowNumber
-                            FROM [msdb].[dbo].[sysjobhistory]
-                            WHERE [step_id] = 0
-                        ) AS [sJOBH]
-                    ON [sJOB].[job_id] = [sJOBH].[job_id]
-                    AND [sJOBH].[RowNumber] = 1
-            ORDER BY [JobName]
+                    SELECT
+                        [job_id],
+                        [run_date],
+                        [run_time],
+                        [run_status],
+                        [run_duration],
+                        [message],
+                        ROW_NUMBER()
+                        OVER (
+                            PARTITION BY [job_id]
+                            ORDER BY [run_date] DESC, [run_time] DESC
+                        ) AS RowNumber
+                    FROM
+                        [msdb].[dbo].[sysjobhistory]
+                    WHERE
+                        [step_id] = 0
+                ) AS [sJOBH]
+                ON
+                    [sJOB].[job_id] = [sJOBH].[job_id]
+                AND
+                    [sJOBH].[RowNumber] = 1
+            ORDER BY
+                [JobName]
           });
         } else {
           @jobresult = ();
@@ -190,7 +191,8 @@ sub nagios {
         $params{mode} =~ /server::jobs::enabled/) {
       if ($self->{lastrunstatus} eq "failed") {
           $self->add_nagios_critical(
-              sprintf "%s failed: %s", $self->{name}, $self->{lastrunstatusmessage});
+              sprintf "%s failed at %s: %s", 
+              $self->{name}, $self->{lastrundatetime}, $self->{lastrunstatusmessage});
       } elsif ($self->{lastrunstatus} eq "retry" || $self->{lastrunstatus} eq "canceled") {
           $self->add_nagios_warning(
               sprintf "%s %s: %s", $self->{name}, $self->{lastrunstatus}, $self->{lastrunstatusmessage});
