@@ -6,6 +6,7 @@ GL_MODULES=\
   ../lib/Monitoring/GLPlugin/Item.pm \
   ../lib/Monitoring/GLPlugin/TableItem.pm \
   ../lib/Monitoring/GLPlugin/DB.pm \
+  ../lib/Monitoring/GLPlugin/DB/DBI.pm \
   ../lib/Monitoring/GLPlugin/DB/CSF.pm \
   ../lib/Monitoring/GLPlugin/DB/Item.pm \
   ../lib/Monitoring/GLPlugin/DB/TableItem.pm

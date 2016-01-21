@@ -1,5 +1,5 @@
 package Classes::Sybase::DBI;
-our @ISA = qw(Classes::Sybase);
+our @ISA = qw(Classes::Sybase Monitoring::GLPlugin::DB::DBI);
 use strict;
 use File::Basename;
 
@@ -208,38 +208,6 @@ sub exec_sp_1hash {
     $rows = [];
   }
   return @{$rows};
-}
-
-
-sub execute {
-  my $self = shift;
-  my $sql = shift;
-  my $errvar = "";
-  my $stderrvar = "";
-  *SAVEERR = *STDERR;
-  open ERR ,'>',\$stderrvar;
-  *STDERR = *ERR;
-  eval {
-    $self->debug(sprintf "EXEC:\n%s\n", $sql);
-    my $sth = $Monitoring::GLPlugin::DB::session->prepare($sql);
-    $sth->execute();
-  };
-  *STDERR = *SAVEERR;
-  if ($@) {
-    $self->debug(sprintf "bumm %s", $@);
-    $self->add_critical($@);
-  } elsif ($stderrvar || $errvar) {
-    $errvar = join("\n", (split(/\n/, $errvar), $stderrvar));
-    $self->debug(sprintf "stderr %s", $errvar) ;
-    $self->add_warning($errvar);
-  }
-}
-
-sub DESTROY {
-  my $self = shift;
-  $self->debug(sprintf "disconnecting DBD %s",
-      $Monitoring::GLPlugin::DB::session ? "with handle" : "without handle");
-  $Monitoring::GLPlugin::DB::session->disconnect() if $Monitoring::GLPlugin::DB::session;
 }
 
 sub add_dbi_funcs {
