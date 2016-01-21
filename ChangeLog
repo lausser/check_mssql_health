@@ -1,27 +1,19 @@
-* 1.6.2.3 2015-12-18
-  bugfix in failed-jobs
-  bugfix in last-backup, skip snapshots
-* 1.6.2.2 2015-08-20
-  improve detection of preferred replica for backups
-* 1.6.2.1 2015-08-17
-  fix timeouts during sql statements
-* 1.6.2 2015-08-17
-  handle replicated databases in backup-age
-* 1.6.1 - 2015-08-15
-  fix a bug in jobs-enabled
-* 1.6 - 2015-04-23
-  add rfc3986-encoded passwords
-* 1.5.21.3 2015-02-20
-  handle and mitigate sql errors in mode sql
-* 1.5.21.2 2014-01-08
-  mitigate sql errors in mode sql-runtime
-  bugfix in fetch() for storec procedures with output params (Thanks lockland)
-* 1.5.21.1 2014-12-29
-  report sql errors in mode sql-runtime
-* 1.5.21 2014-12-09
-  add selectedperfdata
-* 1.5.20.6 2014-07-18
-  bugfix in database-backup-age. incremental backups are no longer ignored
+* 2016-01-19 2.2.1
+  fix aps detection
+* 2016-01-15 2.2
+  add aps modes
+* 2015-08-10 2.1
+  add more modes
+* 2015-07-13 2.0.3
+  new directory layout, standalone
+* 2015-04-23 2.0.2.1
+  update GLPlugin[SNMP]
+* 2.0.2 2015-01-08
+  mitigation of stderr and sql errors in sql-runtime is possible
+* 2.0.1 2014-10-01
+  update GLPlugin
+* 2.0 2014-07
+  complete redesign, based on GLPlugin.pm
 * 1.5.20.5 2014-06-06
   allow mitigation for failed-jobs if no jobs were run
 * 1.5.20.4 2014-06-03
@@ -144,5 +136,5 @@
   beautified the PNP template
   fixed counter rollovers after database restart
 * 1.0 - 2009-03-10
-----------------
+ ---------------
   Initial release

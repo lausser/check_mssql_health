@@ -1,19 +1,49 @@
-## Process this file with automake to produce Makefile.in
+libexec_SCRIPTS=check_mssql_health
+GL_MODULES=\
+  ../lib/Monitoring/GLPlugin/Commandline/Getopt.pm \
+  ../lib/Monitoring/GLPlugin/Commandline.pm \
+  ../lib/Monitoring/GLPlugin.pm \
+  ../lib/Monitoring/GLPlugin/Item.pm \
+  ../lib/Monitoring/GLPlugin/TableItem.pm \
+  ../lib/Monitoring/GLPlugin/DB.pm \
+  ../lib/Monitoring/GLPlugin/DB/CSF.pm \
+  ../lib/Monitoring/GLPlugin/DB/Item.pm \
+  ../lib/Monitoring/GLPlugin/DB/TableItem.pm
+EXTRA_MODULES=\
+  Classes/MSSQL/Component/DatabaseSubsystem.pm \
+  Classes/MSSQL/Component/MemorypoolSubsystem/Buffercache.pm \
+  Classes/MSSQL/Component/MemorypoolSubsystem/Lock.pm \
+  Classes/MSSQL/Component/MemorypoolSubsystem.pm \
+  Classes/MSSQL/Component/JobSubsystem.pm \
+  Classes/MSSQL/DBI.pm \
+  Classes/MSSQL.pm \
+  Classes/ASE/DBI.pm \
+  Classes/ASE.pm \
+  Classes/APS/Component/ComponentSubsystem.pm \
+  Classes/APS/Component/DiskSubsystem.pm \
+  Classes/APS/Component/AlertSubsystem.pm \
+  Classes/APS/DBI.pm \
+  Classes/APS.pm \
+  Classes/Sybase/DBI.pm \
+  Classes/Sybase.pm \
+  Classes/Device.pm
+
+
+SED=/bin/sed
+GREP=/bin/grep
+CAT=/bin/cat
+ECHO=/bin/echo
+if DISABLE_STANDALONE
+STANDALONE = no
+else
+STANDALONE = yes
+endif
 
 SUFFIXES = .pl .pm .sh
 
 VPATH=$(top_srcdir) $(top_srcdir)/plugins-scripts $(top_srcdir)/plugins-scripts/t
 
-libexec_SCRIPTS=check_mssql_health
-MY_MODULES=
-EXTRA_MODULES=\
-  Nagios/DBD/MSSQL/Server/Memorypool.pm \
-  Nagios/DBD/MSSQL/Server/Database/Datafile.pm \
-  Nagios/DBD/MSSQL/Server/Database.pm \
-  Nagios/DBD/MSSQL/Server/Job.pm \
-  Nagios/DBD/MSSQL/Server.pm \
-  Nagios/Extraopts.pm
-EXTRA_DIST=check_mssql_health.pl $(EXTRA_MODULES)
+EXTRA_DIST=$(libexec_SCRIPTS).pl $(EXTRA_MODULES) $(GL_MODULES)
 
 CLEANFILES=$(libexec_SCRIPTS)
 
@@ -32,21 +62,20 @@ AM_INSTALL_PROGRAM_FLAGS=@INSTALL_OPTS@
 	chmod +x $@
 
 $(libexec_SCRIPTS) : $(EXTRA_DIST)
+	if [ -f ../../GLPlugin/lib/Monitoring/GLPlugin.pm ]; then cp -r ../../GLPlugin/lib ..; fi
 	$(ECHO) "#! #PERL# -w" | $(AWK) -f ./subst > $@
-#since 1.5.1	$(ECHO) "# nagios: -epn" >> $@
+	$(ECHO) "# nagios: -epn" >> $@
 	$(ECHO) >> $@
-	$(ECHO) "my %ERRORS=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );" >> $@
-	$(ECHO) "my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );" >> $@
-	for m in ${EXTRA_MODULES}; do \
-		$(SED) -e 's/^1;//g' < $$m | $(AWK) -f ./subst | $(GREP) -v "my %ERROR" >> $@; \
-	done
-	if [ -d "${MYMODULES_DIR}" ]; then \
-		for m in ${MYMODULES_DIR}/CheckMSSQLHealthExt*.pm; do \
-			if [ -f $$m ]; then \
-				$(ECHO) found $$m; \
-				$(SED) -e 's/^1;//g' < $$m | $(AWK) -f ./subst | $(GREP) -v "my %ERROR" >> $@; \
-			fi \
+	if [ "${STANDALONE}" == "yes" ]; then \
+		$(ECHO) i am standalone; \
+		for m in ${GL_MODULES}; do \
+			$(SED) -e 's/^1;//g' < $$m | $(SED) -e '/^__END__/,$$d' | $(SED) -e '/^__PACKAGE__/,$$d' | $(AWK) -f ./subst >> $@; \
 		done \
 	fi
-	$(CAT) check_mssql_health.pl | $(GREP) -v "^use Nagios" | $(GREP) -v "^my %ERROR" | $(AWK) -f ./subst >> $@
+	for m in ${EXTRA_MODULES}; do \
+		$(SED) -e 's/^1;//g' < $$m | $(SED) -e '/^__END__/,$$d' | $(AWK) -f ./subst >> $@; \
+	done
+	$(ECHO) "package main;" >> $@
+	$(CAT) $(libexec_SCRIPTS).pl | $(AWK) -f ./subst >> $@
 	chmod +x $@
+
