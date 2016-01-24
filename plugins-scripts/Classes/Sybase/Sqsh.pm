@@ -16,8 +16,10 @@ sub create_cmd_line {
   push (@args, sprintf "-U '%s'", $self->opts->username);
   push (@args, sprintf "-P '%s'",
       $self->decode_password($self->opts->password));
-  push (@args, sprintf "-i '%s'", $self->{sql_commandfile});
-  push (@args, sprintf "-o '%s'", $self->{sql_resultfile});
+  push (@args, sprintf "-i '%s'", 
+      $Monitoring::GLPlugin::DB::sql_commandfile);
+  push (@args, sprintf "-o '%s'", 
+      $Monitoring::GLPlugin::DB::sql_resultfile);
   if ($self->opts->currentdb) {
     push (@args, sprintf "-D '%s'", $self->opts->currentdb);
   }
@@ -78,7 +80,7 @@ sub check_connect {
 sub write_extcmd_file {
   my $self = shift;
   my $sql = shift;
-  open CMDCMD, "> $self->{sql_commandfile}";
+  open CMDCMD, "> $Monitoring::GLPlugin::DB::sql_commandfile";
   printf CMDCMD "%s\n", $sql;
   printf CMDCMD "go\n";
   close CMDCMD;
@@ -109,11 +111,11 @@ sub fetchrow_array {
   my $exit_output = `$Monitoring::GLPlugin::DB::session`;
   *STDERR = *SAVEERR;
   if ($?) {
-    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; my $x = <>; close ARGV; $x } || '';
+    my $output = do { local (@ARGV, $/) = $Monitoring::GLPlugin::DB::sql_resultfile; my $x = <>; close ARGV; $x } || '';
     $self->debug(sprintf "stderr %s", $stderrvar) ;
     $self->add_warning($stderrvar);
   } else {
-    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; my $x = <>; close ARGV; $x } || '';
+    my $output = do { local (@ARGV, $/) = $Monitoring::GLPlugin::DB::sql_resultfile; my $x = <>; close ARGV; $x } || '';
     @row = map { $self->convert_scientific_numbers($_) }
         map { s/^\s+([\.\d]+)$/$1/g; $_ }         # strip leading space from numbers
         map { s/\s+$//g; $_ }                     # strip trailing space
@@ -155,11 +157,11 @@ sub fetchall_array {
   my $exit_output = `$Monitoring::GLPlugin::DB::session`;
   *STDERR = *SAVEERR;
   if ($?) {
-    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; my $x = <>; close ARGV; $x } || '';
+    my $output = do { local (@ARGV, $/) = $Monitoring::GLPlugin::DB::sql_resultfile; my $x = <>; close ARGV; $x } || '';
     $self->debug(sprintf "stderr %s", $stderrvar) ;
     $self->add_warning($stderrvar);
   } else {
-    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; my $x = <>; close ARGV; $x } || '';
+    my $output = do { local (@ARGV, $/) = $Monitoring::GLPlugin::DB::sql_resultfile; my $x = <>; close ARGV; $x } || '';
     my @rows = map { [
         map { $self->convert_scientific_numbers($_) }
         map { s/^\s+([\.\d]+)$/$1/g; $_ }
