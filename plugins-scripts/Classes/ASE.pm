@@ -37,6 +37,9 @@ sub init {
           value => $connectedusers
       );
     }
+  } elsif ($self->mode =~ /^server::database/) {
+    $self->analyze_and_check_database_subsystem("Classes::ASE::Component::DatabaseSubsystem");
+    $self->reduce_messages_short();
   } else {
     $self->no_such_mode();
   }

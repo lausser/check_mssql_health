@@ -18,6 +18,7 @@ EXTRA_MODULES=\
   Classes/MSSQL/Component/JobSubsystem.pm \
   Classes/MSSQL/DBI.pm \
   Classes/MSSQL.pm \
+  Classes/ASE/Component/DatabaseSubsystem.pm \
   Classes/ASE/DBI.pm \
   Classes/ASE.pm \
   Classes/APS/Component/ComponentSubsystem.pm \
