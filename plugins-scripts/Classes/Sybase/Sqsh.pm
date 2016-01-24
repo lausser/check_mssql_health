@@ -22,7 +22,8 @@ sub create_cmd_line {
     push (@args, sprintf "-D '%s'", $self->opts->currentdb);
   }
   push (@args, sprintf "-h -s '|'");
-  $self->{sqsh} = sprintf '"%s" %s', $self->{extcmd}, join(" ", @args);
+  $Monitoring::GLPlugin::DB::session =
+      sprintf '"%s" %s', $self->{extcmd}, join(" ", @args);
 }
 
 sub check_connect {
@@ -104,8 +105,8 @@ sub fetchrow_array {
   *SAVEERR = *STDERR;
   open OUT ,'>',\$stderrvar;
   *STDERR = *OUT;
-  $self->debug($self->{sqsh});
-  my $exit_output = `$self->{sqsh}`;
+  $self->debug($Monitoring::GLPlugin::DB::session);
+  my $exit_output = `$Monitoring::GLPlugin::DB::session`;
   *STDERR = *SAVEERR;
   if ($?) {
     my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; my $x = <>; close ARGV; $x } || '';
@@ -150,8 +151,8 @@ sub fetchall_array {
   *SAVEERR = *STDERR;
   open OUT ,'>',\$stderrvar;
   *STDERR = *OUT;
-  $self->debug($self->{sqsh});
-  my $exit_output = `$self->{sqsh}`;
+  $self->debug($Monitoring::GLPlugin::DB::session);
+  my $exit_output = `$Monitoring::GLPlugin::DB::session`;
   *STDERR = *SAVEERR;
   if ($?) {
     my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; my $x = <>; close ARGV; $x } || '';
