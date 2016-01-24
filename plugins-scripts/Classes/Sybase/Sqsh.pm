@@ -1,5 +1,5 @@
 package Classes::Sybase::Sqsh;
-our @ISA = qw(Classes::Sybase Monitoring::GLPlugin::DB::Sqsh);
+our @ISA = qw(Classes::Sybase);
 use strict;
 use File::Basename;
 
