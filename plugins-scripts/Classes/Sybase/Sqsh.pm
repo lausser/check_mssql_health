@@ -108,11 +108,11 @@ sub fetchrow_array {
   my $exit_output = `$self->{sqsh}`;
   *STDERR = *SAVEERR;
   if ($?) {
-    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; <> };
+    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; my $x = <>; close ARGV; $x } || '';
     $self->debug(sprintf "stderr %s", $stderrvar) ;
     $self->add_warning($stderrvar);
   } else {
-    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; <> };
+    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; my $x = <>; close ARGV; $x } || '';
     @row = map { $self->convert_scientific_numbers($_) }
         map { s/^\s+([\.\d]+)$/$1/g; $_ }         # strip leading space from numbers
         map { s/\s+$//g; $_ }                     # strip trailing space
@@ -132,82 +132,55 @@ sub fetchall_array {
   my $self = shift;
   my $sql = shift;
   my @arguments = @_;
-  my $sth = undef;
   my $rows = undef;
-  my $errvar = "";
   my $stderrvar = "";
-  *SAVEERR = *STDERR;
-  open ERR ,'>',\$stderrvar;
-  *STDERR = *ERR;
-  eval {
-    $self->debug(sprintf "SQL:\n%s\nARGS:\n%s\n",
-        $sql, Data::Dumper::Dumper(\@arguments));
-    if ($sql =~ /^\s*dbcc /im) {
-      # dbcc schreibt auf stdout. Die Ausgabe muss daher
-      # mit einem eigenen Handler aufgefangen werden.
-      $Monitoring::GLPlugin::DB::session->{syb_err_handler} = sub {
-        my($err, $sev, $state, $line, $server,
-            $proc, $msg, $sql, $err_type) = @_;
-        push(@{$rows}, $msg);
-        return 0;
-      };
-    }
-    $sth = $Monitoring::GLPlugin::DB::session->prepare($sql);
-    if (scalar(@arguments)) {
-      $sth->execute(@arguments);
+  foreach (@arguments) {
+    # replace the ? by the parameters
+    if (/^\d+$/) {
+      $sql =~ s/\?/$_/;
     } else {
-      $sth->execute();
+      $sql =~ s/\?/'$_'/;
     }
-    if ($sql !~ /^\s*dbcc /im) {
-      $rows = $sth->fetchall_arrayref();
-    }
+  }
+  $self->set_variable("verbosity", 2);
+  $self->debug(sprintf "SQL (? resolved):\n%s\nARGS:\n%s\n",
+      $sql, Data::Dumper::Dumper(\@arguments));
+  $self->write_extcmd_file($sql);
+  *SAVEERR = *STDERR;
+  open OUT ,'>',\$stderrvar;
+  *STDERR = *OUT;
+  $self->debug($self->{sqsh});
+  my $exit_output = `$self->{sqsh}`;
+  *STDERR = *SAVEERR;
+  if ($?) {
+    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; my $x = <>; close ARGV; $x } || '';
+    $self->debug(sprintf "stderr %s", $stderrvar) ;
+    $self->add_warning($stderrvar);
+  } else {
+    my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; my $x = <>; close ARGV; $x } || '';
+    my @rows = map { [
+        map { $self->convert_scientific_numbers($_) }
+        map { s/^\s+([\.\d]+)$/$1/g; $_ }
+        map { s/\s+$//g; $_ }
+        split /\|/
+    ] } grep { ! /^\d+ rows selected/ }
+        grep { ! /^\d+ [Zz]eilen ausgew / }
+        grep { ! /^Elapsed: / }
+        grep { ! /^\s*$/ } map { s/^\|//; $_; } split(/\n/, $output);
+    $rows = \@rows;
     $self->debug(sprintf "RESULT:\n%s\n",
         Data::Dumper::Dumper($rows));
-  };
-  *STDERR = *SAVEERR;
+  }
   if ($@) {
     $self->debug(sprintf "bumm %s", $@);
     $self->add_critical($@);
-    $rows = [];
-  } elsif ($stderrvar || $errvar) {
-    $errvar = join("\n", (split(/\n/, $errvar), $stderrvar));
-    $self->debug(sprintf "stderr %s", $errvar) ;
-    $self->add_warning($errvar);
   }
   return @{$rows};
 }
 
-sub exec_sp_1hash {
+sub execute {
   my $self = shift;
   my $sql = shift;
-  my @arguments = @_;
-  my $sth = undef;
-  my $rows = undef;
-  eval {
-    $self->debug(sprintf "SQL:\n%s\nARGS:\n%s\n",
-        $sql, Data::Dumper::Dumper(\@arguments));
-    $sth = $Monitoring::GLPlugin::DB::session->prepare($sql);
-    if (scalar(@arguments)) {
-      $sth->execute(@arguments);
-    } else {
-      $sth->execute();
-    }
-    do {
-      while (my $href = $sth->fetchrow_hashref()) {
-        foreach (keys %{$href}) {
-          push(@{$rows}, [ $_, $href->{$_} ]);
-        }
-      }
-    } while ($sth->{syb_more_results});
-    $self->debug(sprintf "RESULT:\n%s\n",
-        Data::Dumper::Dumper($rows));
-  };
-  if ($@) {
-    $self->debug(sprintf "bumm %s", $@);
-    $self->add_critical($@);
-    $rows = [];
-  }
-  return @{$rows};
 }
 
 sub add_dbi_funcs {
