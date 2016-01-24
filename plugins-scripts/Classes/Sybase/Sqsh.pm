@@ -104,6 +104,7 @@ sub fetchrow_array {
   *SAVEERR = *STDERR;
   open OUT ,'>',\$stderrvar;
   *STDERR = *OUT;
+  $self->debug($self->{sqsh});
   my $exit_output = `$self->{sqsh}`;
   *STDERR = *SAVEERR;
   if ($?) {
