@@ -16,19 +16,23 @@ EXTRA_MODULES=\
   Classes/MSSQL/Component/MemorypoolSubsystem/Lock.pm \
   Classes/MSSQL/Component/MemorypoolSubsystem.pm \
   Classes/MSSQL/Component/JobSubsystem.pm \
+  Classes/MSSQL/SqlRelay.pm \
   Classes/MSSQL/Sqsh.pm \
   Classes/MSSQL/DBI.pm \
   Classes/MSSQL.pm \
   Classes/ASE/Component/DatabaseSubsystem.pm \
+  Classes/ASE/SqlRelay.pm \
   Classes/ASE/Sqsh.pm \
   Classes/ASE/DBI.pm \
   Classes/ASE.pm \
   Classes/APS/Component/ComponentSubsystem.pm \
   Classes/APS/Component/DiskSubsystem.pm \
   Classes/APS/Component/AlertSubsystem.pm \
+  Classes/APS/SqlRelay.pm \
   Classes/APS/Sqsh.pm \
   Classes/APS/DBI.pm \
   Classes/APS.pm \
+  Classes/Sybase/SqlRelay.pm \
   Classes/Sybase/Sqsh.pm \
   Classes/Sybase/DBI.pm \
   Classes/Sybase.pm \

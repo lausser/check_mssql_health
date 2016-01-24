@@ -1,5 +1,5 @@
 * 2016-01-24 2.3
-  add method sqsh (to redesign)
+  add method sqsh and sqlrelay (to redesign)
 * 2016-01-24 2.2.2
   add sybase database* (to redesign)
 * 2016-01-19 2.2.1

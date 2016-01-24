@@ -187,6 +187,19 @@ sub execute {
   my $sql = shift;
 }
 
+sub decode_password {
+  my $self = shift;
+  my $password = shift;
+  $password = $self->SUPER::decode_password($password);
+  # we call '...%s/%s@...' inside backticks where the second %s is the password
+  # abc'xcv -> ''abc'\''xcv''
+  # abc'`xcv -> ''abc'\''\`xcv''
+  if ($password && $password =~ /'/) {
+    $password = "'".join("\\'", map { "'".$_."'"; } split("'", $password))."'";
+  }
+  return $password;
+}
+
 sub add_dbi_funcs {
   my $self = shift;
   $self->SUPER::add_dbi_funcs();
@@ -194,6 +207,7 @@ sub add_dbi_funcs {
     no strict 'refs';
     *{'Monitoring::GLPlugin::DB::create_cmd_line'} = \&{"Classes::Sybase::Sqsh::create_cmd_line"};
     *{'Monitoring::GLPlugin::DB::write_extcmd_file'} = \&{"Classes::Sybase::Sqsh::write_extcmd_file"};
+    *{'Monitoring::GLPlugin::DB::decode_password'} = \&{"Classes::Sybase::Sqsh::decode_password"};
     *{'Monitoring::GLPlugin::DB::fetchall_array'} = \&{"Classes::Sybase::Sqsh::fetchall_array"};
     *{'Monitoring::GLPlugin::DB::fetchrow_array'} = \&{"Classes::Sybase::Sqsh::fetchrow_array"};
     *{'Monitoring::GLPlugin::DB::execute'} = \&{"Classes::Sybase::Sqsh::execute"};
