@@ -26,6 +26,7 @@ EXTRA_MODULES=\
   Classes/APS/Component/AlertSubsystem.pm \
   Classes/APS/DBI.pm \
   Classes/APS.pm \
+  Classes/Sybase/Sqsh.pm \
   Classes/Sybase/DBI.pm \
   Classes/Sybase.pm \
   Classes/Device.pm
