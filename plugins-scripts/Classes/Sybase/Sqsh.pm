@@ -23,7 +23,7 @@ sub create_cmd_line {
   if ($self->opts->currentdb) {
     push (@args, sprintf "-D '%s'", $self->opts->currentdb);
   }
-  push (@args, sprintf "-h -s '|'");
+  push (@args, sprintf "-h -s '|' -m bcp");
   $Monitoring::GLPlugin::DB::session =
       sprintf '"%s" %s', $self->{extcmd}, join(" ", @args);
 }
