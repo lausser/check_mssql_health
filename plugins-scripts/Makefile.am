@@ -16,6 +16,7 @@ EXTRA_MODULES=\
   Classes/MSSQL/Component/MemorypoolSubsystem/Lock.pm \
   Classes/MSSQL/Component/MemorypoolSubsystem.pm \
   Classes/MSSQL/Component/JobSubsystem.pm \
+  Classes/MSSQL/Sqsh.pm \
   Classes/MSSQL/DBI.pm \
   Classes/MSSQL.pm \
   Classes/ASE/Component/DatabaseSubsystem.pm \
@@ -24,6 +25,7 @@ EXTRA_MODULES=\
   Classes/APS/Component/ComponentSubsystem.pm \
   Classes/APS/Component/DiskSubsystem.pm \
   Classes/APS/Component/AlertSubsystem.pm \
+  Classes/APS/Sqsh.pm \
   Classes/APS/DBI.pm \
   Classes/APS.pm \
   Classes/Sybase/Sqsh.pm \
