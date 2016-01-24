@@ -192,6 +192,8 @@ sub add_dbi_funcs {
   $self->SUPER::add_dbi_funcs();
   {
     no strict 'refs';
+    *{'Monitoring::GLPlugin::DB::create_cmd_line'} = \&{"Classes::Sybase::Sqsh::create_cmd_line"};
+    *{'Monitoring::GLPlugin::DB::write_extcmd_file'} = \&{"Classes::Sybase::Sqsh::write_extcmd_file"};
     *{'Monitoring::GLPlugin::DB::fetchall_array'} = \&{"Classes::Sybase::Sqsh::fetchall_array"};
     *{'Monitoring::GLPlugin::DB::fetchrow_array'} = \&{"Classes::Sybase::Sqsh::fetchrow_array"};
     *{'Monitoring::GLPlugin::DB::execute'} = \&{"Classes::Sybase::Sqsh::execute"};
