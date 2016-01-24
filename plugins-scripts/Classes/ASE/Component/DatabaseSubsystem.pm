@@ -63,11 +63,49 @@ sub init {
         ['databases', $sql, 'Classes::ASE::Component::DatabaseSubsystem::Database', $allfilter, $columns],
     ]);
     @{$self->{databases}} =  reverse sort {$a->{name} cmp $b->{name}} @{$self->{databases}};
+  } elsif ($self->mode =~ /server::database::.*backupage/) {
+    my $columns = ['name', 'id'];
+    $sql = q{
+      SELECT name, dbid FROM master..sysdatabases
+    };
+    $self->get_db_tables([
+        ['databases', $sql, 'Classes::ASE::Component::DatabaseSubsystem::DatabaseStub', $allfilter, $columns],
+    ]);
+    foreach (@{$self->{databases}}) {
+      bless $_, 'Classes::ASE::Component::DatabaseSubsystem::Database';
+      $_->finish();
+    }
   } else {
     $self->no_such_mode();
   }
 }
 
+
+package Classes::ASE::Component::DatabaseSubsystem::DatabaseStub;
+our @ISA = qw(Classes::ASE::Component::DatabaseSubsystem::Database);
+use strict;
+
+sub finish {
+  my $self = shift;
+  my $sql = sprintf 'dbcc traceon(3604)\n dbcc dbtable("%s")\n',
+      $self->{name};
+  my @dbccresult = $self->fetchall_array($sql);
+  foreach (@dbccresult) {
+    #dbt_backup_start: 0x1686303d8 (dtdays=40599, dttime=7316475)    Feb 27 2011  6:46:28:250AM
+    if (/dbt_backup_start: \w+\s+\(dtdays=0, dttime=0\) \(uninitialized\)/) {
+      # never backed up
+      last;
+    } elsif (/dbt_backup_start: \w+\s+\(dtdays=\d+, dttime=\d+\)\s+(\w+)\s+(\d+)\s+(\d+)\s+(\d+):(\d+):(\d+):\d+([AP])/) {
+      require Time::Local;
+      my %months = ("Jan" => 0, "Feb" => 1, "Mar" => 2, "Apr" => 3, "May" => 4, "Jun" => 5, "Jul" => 6, "Aug" => 7, "Sep" => 8, "Oct" => 9, "Nov" => 10, "Dec" => 11);
+      $self->{backup_age} = (time - Time::Local::timelocal($6, $5, $4 + ($7 eq "A" ? 0 : 12), $2, $months{$1}, $3 - 1900)) / 3600;
+      $self->{backup_duration} = 0;
+      last;
+    }
+  }
+  # to keep compatibility with mssql. recovery_model=3=simple will be skipped later
+  $self->{recovery_model} = 0;
+}
 
 package Classes::ASE::Component::DatabaseSubsystem::Database;
 our @ISA = qw(Monitoring::GLPlugin::DB::TableItem);
@@ -221,6 +259,37 @@ sub check {
       $self->add_warning(sprintf "%s is %s", $self->{name}, $self->{state_desc});
     } else {
       $self->add_critical(sprintf "%s is %s", $self->{name}, $self->{state_desc});
+    }
+    if (! $self->is_backup_node) {
+      $self->add_ok(sprintf "this is not the preferred replica for backups of %s", $self->{name});
+      return;
+    }
+    my $log = "";
+    if ($self->mode =~ /server::database::logbackupage/) {
+      $log = "log of ";
+    }
+    if ($self->mode =~ /server::database::logbackupage/ && $self->{recovery_model} == 3) {
+      $self->add_ok(sprintf "%s has no logs", $self->{name});
+    } else {
+      $self->set_thresholds(metric => $self->{name}.'_bck_age', warning => 48, critical => 72);
+      if (! defined $self->{backup_age}) {
+        $self->add_message(defined $self->opts->mitigation() ? $self->opts->mitigation() : 2,
+            sprintf "%s%s was never backed up", $log, $self->{name});
+        $self->{backup_age} = 0;
+        $self->{backup_duration} = 0;
+      } else {
+        $self->add_message(
+            $self->check_thresholds(metric => $self->{name}.'_bck_age', value => $self->{backup_age}),
+            sprintf "%s%s was backed up %dh ago", $log, $self->{name}, $self->{backup_age});
+      }
+      $self->add_perfdata(
+          label => $self->{name}.'_bck_age',
+          value => $self->{backup_age},
+      );
+      $self->add_perfdata(
+          label => $self->{name}.'_bck_time',
+          value => $self->{backup_duration},
+      );
     }
   }
 }
