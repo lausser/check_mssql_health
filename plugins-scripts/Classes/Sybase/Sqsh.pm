@@ -19,11 +19,12 @@ sub check_connect {
     push (@args, sprintf "-p '%s'", $self->opts->port);
   }
   push (@args, sprintf "-U '%s'", $self->opts->username);
-  push (@args, sprintf "-P '%s'", $self->opts->pasword);
+  push (@args, sprintf "-P '%s'",
+      $self->decode_password($self->opts->password));
   push (@args, sprintf "-i '%s'", $self->{sql_commandfile});
   push (@args, sprintf "-o '%s'", $self->{sql_resultfile});
-  if ($self->opts->database) {
-    push (@args, sprintf "-D '%s'", $self->opts->database);
+  if ($self->opts->currentdb) {
+    push (@args, sprintf "-D '%s'", $self->opts->currentdb);
   }
   push (@args, sprintf "-h -s '|'");
   $self->{sqsh} = sprintf '"%s" %s', $self->{extcmd}, join(" ", @args);
@@ -92,7 +93,8 @@ sub fetchrow_array {
       $sql =~ s/\?/'$_'/;
     }
   }
-  $self->trace(sprintf "SQL (? resolved):\n%s\nARGS:\n%s\n",
+  $self->set_variable("verbosity", 2);
+  $self->debug(sprintf "SQL (? resolved):\n%s\nARGS:\n%s\n",
       $sql, Data::Dumper::Dumper(\@arguments));
   $self->create_extcmd_files();
   $self->write_extcmd_file($sql);
@@ -111,7 +113,7 @@ sub fetchrow_array {
         map { s/^\s+([\.\d]+)$/$1/g; $_ }         # strip leading space from numbers
         map { s/\s+$//g; $_ }                     # strip trailing space
         split(/\|/, (split(/\n/, $output))[0]);
-    $self->trace(sprintf "RESULT:\n%s\n",
+    $self->debug(sprintf "RESULT:\n%s\n",
         Data::Dumper::Dumper(\@row));
   }
   if ($@) {
