@@ -167,7 +167,6 @@ sub is_temp {
 
 sub check {
   my $self = shift;
-printf "dadong\n";
   if ($self->mode =~ /server::database::(listdatabases)$/) {
     printf "%s\n", $self->{name};
   } elsif ($self->mode =~ /server::database::(databasefree)$/) {
