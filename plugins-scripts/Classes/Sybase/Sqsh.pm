@@ -113,7 +113,7 @@ sub fetchrow_array {
     $self->add_warning($stderrvar);
   } else {
     my $output = do { local (@ARGV, $/) = $self->{sql_resultfile}; <> };
-    @row = map { convert_scientific_numbers($_) }
+    @row = map { $self->convert_scientific_numbers($_) }
         map { s/^\s+([\.\d]+)$/$1/g; $_ }         # strip leading space from numbers
         map { s/\s+$//g; $_ }                     # strip trailing space
         split(/\|/, (split(/\n/, $output))[0]);
