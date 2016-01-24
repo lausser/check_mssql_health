@@ -116,7 +116,8 @@ sub fetchrow_array {
     @row = map { $self->convert_scientific_numbers($_) }
         map { s/^\s+([\.\d]+)$/$1/g; $_ }         # strip leading space from numbers
         map { s/\s+$//g; $_ }                     # strip trailing space
-        split(/\|/, (map { s/^\|//; $_; } split(/\n/, $output))[0]);
+        split(/\|/, (map { s/^\|//; $_; } grep {! /^\s*$/ } split(/\n/, $output)
+)[0]);
     $self->debug(sprintf "RESULT:\n%s\n",
         Data::Dumper::Dumper(\@row));
   }
