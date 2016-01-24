@@ -167,6 +167,7 @@ sub is_temp {
 
 sub check {
   my $self = shift;
+printf "dadong\n";
   if ($self->mode =~ /server::database::(listdatabases)$/) {
     printf "%s\n", $self->{name};
   } elsif ($self->mode =~ /server::database::(databasefree)$/) {
@@ -262,6 +263,7 @@ sub check {
     } else {
       $self->add_critical(sprintf "%s is %s", $self->{name}, $self->{state_desc});
     }
+  } elsif ($self->mode =~ /server::database::.*backupage/) {
     if (! $self->is_backup_node) {
       $self->add_ok(sprintf "this is not the preferred replica for backups of %s", $self->{name});
       return;
