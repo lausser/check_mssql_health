@@ -87,8 +87,10 @@ use strict;
 
 sub finish {
   my $self = shift;
-  my $sql = sprintf 'dbcc traceon(3604)\n dbcc dbtable("%s")\n',
-      $self->{name};
+  my $sql = sprintf q{
+      DBCC TRACEON(3604)
+      DBCC DBTABLE("%s")
+  }, $self->{name};
   my @dbccresult = $self->fetchall_array($sql);
   foreach (@dbccresult) {
     #dbt_backup_start: 0x1686303d8 (dtdays=40599, dttime=7316475)    Feb 27 2011  6:46:28:250AM
