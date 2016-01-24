@@ -3,13 +3,8 @@ our @ISA = qw(Classes::Sybase);
 use strict;
 use File::Basename;
 
-sub check_connect {
+sub create_cmd_line {
   my $self = shift;
-  my $stderrvar;
-  if (! $self->find_extcmd("sqsh", "SQL_HOME")) {
-    $self->add_unknown("sqsh command was not found");
-    return;
-  }
   my @args = ();
   if ($self->opts->server) {
     push (@args, sprintf "-S '%s'", $self->opts->server);
@@ -28,7 +23,17 @@ sub check_connect {
   }
   push (@args, sprintf "-h -s '|'");
   $self->{sqsh} = sprintf '"%s" %s', $self->{extcmd}, join(" ", @args);
+}
+
+sub check_connect {
+  my $self = shift;
+  my $stderrvar;
+  if (! $self->find_extcmd("sqsh", "SQL_HOME")) {
+    $self->add_unknown("sqsh command was not found");
+    return;
+  }
   $self->create_extcmd_files();
+  $self->create_cmd_line();
   eval {
     require DBI;
     use POSIX ':signal_h';
@@ -67,7 +72,6 @@ sub check_connect {
   } elsif ($stderrvar && $stderrvar =~ /can't change context to database/) {
     $self->add_critical($stderrvar);
   }
-  $self->delete_extcmd_files();
 }
 
 sub write_extcmd_file {
@@ -96,7 +100,6 @@ sub fetchrow_array {
   $self->set_variable("verbosity", 2);
   $self->debug(sprintf "SQL (? resolved):\n%s\nARGS:\n%s\n",
       $sql, Data::Dumper::Dumper(\@arguments));
-  $self->create_extcmd_files();
   $self->write_extcmd_file($sql);
   *SAVEERR = *STDERR;
   open OUT ,'>',\$stderrvar;
@@ -120,7 +123,6 @@ sub fetchrow_array {
     $self->debug(sprintf "bumm %s", $@);
     $self->add_critical($@);
   }
-  $self->delete_extcmd_files();
   return $row[0] unless wantarray;
   return @row;
 }
