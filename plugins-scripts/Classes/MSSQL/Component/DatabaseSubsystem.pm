@@ -363,7 +363,7 @@ sub finish {
     if ($self->version_is_minimum("9.x")) {
       $sql = q{
         USE 
-      }.$self->{name}.q{
+      [}.$self->{name}.q{]
         SELECT
           ISNULL(fg.name, 'TLOGS'),
           dbf.name,
@@ -432,7 +432,7 @@ sub finish {
     }
   } elsif ($self->mode =~ /server::database::(.*backupage)$/) {
     if ($self->version_is_minimum("11.x")) {
-      my @replicated_databases = $self->{handle}->fetchall_array(q{
+      my @replicated_databases = $self->fetchall_array(q{
         SELECT 
           DISTINCT CS.database_name AS [DatabaseName]
         FROM
@@ -449,7 +449,7 @@ sub finish {
       if (grep { $self->{name} eq $_->[0] } @replicated_databases) {
         # this database is part of an availability group
         # find out if we are the preferred node, where the backup takes place
-        $self->{preferred_replica} = $self->{handle}->fetchrow_array(q{
+        $self->{preferred_replica} = $self->fetchrow_array(q{
           SELECT sys.fn_hadr_backup_is_preferred_replica(?)
         }, $self->{name});
       } else {
