@@ -442,7 +442,7 @@ sub finish {
         INNER JOIN 
           master.sys.dm_hadr_database_replica_cluster_states AS CS
         ON
-          ar.replica_id = CS.replica_id
+          AR.replica_id = CS.replica_id
         WHERE
           CS.is_database_joined = 1 -- DB muss aktuell auch in AG aktiv sein
       });
