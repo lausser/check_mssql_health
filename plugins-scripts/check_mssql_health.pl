@@ -180,6 +180,9 @@ sub print_usage () {
        the mssql user
     --password
        the mssql user's password
+    --kerberos
+       where applicable, the Kerberos realm for authentication
+       (this will switch to the ODBC driver!)
     --warning
        the warning range
     --critical
@@ -294,6 +297,7 @@ my @params = (
     "hostname=s",
     "username=s",
     "password=s",
+    "kerberos=s",
     "port=i",
     "server=s",
     "currentdb=s",
@@ -554,6 +558,21 @@ if ($commandline{mode} =~ /^my-([^\-.]+)/) {
   exit 3;
 }
 
+# Kerberos environment initialization
+if ($commandline{kerberos}) {
+  use Authen::Krb5;
+  my $krb_context=Authen::Krb5::init_context();
+  my $krb_userp=Authen::Krb5::parse_name($commandline{username});
+  my $krb_credcache=Authen::Krb5::cc_default();
+  my $krb_servicep=Authen::Krb5::build_principal_ext(Authen::Krb5::parse_name("krbtgt"));
+
+  my $kerberos_result = Authen::Krb5::get_in_tkt_with_password($krb_userp, $krb_servicep, $commandline{password}, $krb_credcache);
+  if (! $kerberos_result) {
+    printf "UNKNOWN - Kerberos authentication failed for user ".$commandline{username}.": ".Authen::Krb5::error()."\n";
+    exit 3;
+  }
+}
+
 my %params = (
     timeout => $TIMEOUT,
     mode => (
@@ -576,6 +595,7 @@ my %params = (
     password => $commandline{password} || 
         $ENV{NAGIOS__SERVICEMSSQL_PASS} ||
         $ENV{NAGIOS__HOSTMSSQL_PASS},
+    kerberos => $commandline{kerberos},
     port => $commandline{port} || 
         $ENV{NAGIOS__SERVICEMSSQL_PORT} ||
         $ENV{NAGIOS__HOSTMSSQL_PORT},
