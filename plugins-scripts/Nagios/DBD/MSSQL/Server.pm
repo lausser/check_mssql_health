@@ -40,6 +40,7 @@ sub new {
     hostname => $params{hostname},
     username => $params{username},
     password => $params{password},
+    kerberos => $params{kerberos},
     port => $params{port} || 1433,
     server => $params{server},
     timeout => $params{timeout},
@@ -1416,6 +1417,7 @@ sub init {
   my $self = shift;
   my %params = @_;
   my $retval = undef;
+  my $driver = "Sybase:";
   if ($self->{mode} =~ /^server::tnsping/) {
     # erstmal reserviert fuer irgendeinen tcp-connect
     if (! $self->{connect}) {
@@ -1432,12 +1434,19 @@ sub init {
       return undef;
     }
     $self->{dbi_options} = { RaiseError => 1, AutoCommit => $self->{commit}, PrintError => 1 };
-    $self->{dsn} = "DBI:Sybase:";
+    if ($params{kerberos}) {
+      # Kerberos only supported by the SQL native client
+      $driver = "ODBC:driver=SQL Server Native Client 11.0";
+    }
+    $self->{dsn} = "DBI:$driver";
     if ($self->{hostname}) {
       $self->{dsn} .= sprintf ";host=%s", $self->{hostname};
       $self->{dsn} .= sprintf ";port=%s", $self->{port};
     } else {
       $self->{dsn} .= sprintf ";server=%s", $self->{server};
+    }
+    if ($params{kerberos}) {
+      $self->{dsn} .= ";Trusted_Connection=yes";
     }
     if ($params{currentdb}) {
       if (index($params{currentdb},"-") != -1) {
