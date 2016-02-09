@@ -38,7 +38,6 @@ sub check_connect {
   $self->create_extcmd_files();
   $self->create_cmd_line();
   eval {
-    require DBI;
     use POSIX ':signal_h';
     if ($^O =~ /MSWin/) {
       local $SIG{'ALRM'} = sub {
