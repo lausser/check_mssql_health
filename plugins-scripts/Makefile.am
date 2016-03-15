@@ -72,7 +72,6 @@ AM_INSTALL_PROGRAM_FLAGS=@INSTALL_OPTS@
 	chmod +x $@
 
 $(libexec_SCRIPTS) : $(EXTRA_DIST)
-	if [ -f ../../GLPlugin/lib/Monitoring/GLPlugin.pm ]; then cp -r ../../GLPlugin/lib ..; fi
 	$(ECHO) "#! #PERL# -w" | $(AWK) -f ./subst > $@
 	$(ECHO) "# nagios: -epn" >> $@
 	$(ECHO) >> $@
