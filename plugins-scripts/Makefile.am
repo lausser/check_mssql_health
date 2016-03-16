@@ -1,15 +1,15 @@
 libexec_SCRIPTS=check_mssql_health
 GL_MODULES=\
-  ../lib/Monitoring/GLPlugin/Commandline/Getopt.pm \
-  ../lib/Monitoring/GLPlugin/Commandline.pm \
-  ../lib/Monitoring/GLPlugin.pm \
-  ../lib/Monitoring/GLPlugin/Item.pm \
-  ../lib/Monitoring/GLPlugin/TableItem.pm \
-  ../lib/Monitoring/GLPlugin/DB.pm \
-  ../lib/Monitoring/GLPlugin/DB/DBI.pm \
-  ../lib/Monitoring/GLPlugin/DB/CSF.pm \
-  ../lib/Monitoring/GLPlugin/DB/Item.pm \
-  ../lib/Monitoring/GLPlugin/DB/TableItem.pm
+  ../GLPlugin/lib/Monitoring/GLPlugin/Commandline/Getopt.pm \
+  ../GLPlugin/lib/Monitoring/GLPlugin/Commandline.pm \
+  ../GLPlugin/lib/Monitoring/GLPlugin.pm \
+  ../GLPlugin/lib/Monitoring/GLPlugin/Item.pm \
+  ../GLPlugin/lib/Monitoring/GLPlugin/TableItem.pm \
+  ../GLPlugin/lib/Monitoring/GLPlugin/DB.pm \
+  ../GLPlugin/lib/Monitoring/GLPlugin/DB/DBI.pm \
+  ../GLPlugin/lib/Monitoring/GLPlugin/DB/CSF.pm \
+  ../GLPlugin/lib/Monitoring/GLPlugin/DB/Item.pm \
+  ../GLPlugin/lib/Monitoring/GLPlugin/DB/TableItem.pm
 EXTRA_MODULES=\
   Classes/MSSQL/Component/DatabaseSubsystem.pm \
   Classes/MSSQL/Component/MemorypoolSubsystem/Buffercache.pm \
@@ -72,7 +72,6 @@ AM_INSTALL_PROGRAM_FLAGS=@INSTALL_OPTS@
 	chmod +x $@
 
 $(libexec_SCRIPTS) : $(EXTRA_DIST)
-	if [ -f ../../GLPlugin/lib/Monitoring/GLPlugin.pm ]; then cp -r ../../GLPlugin/lib ..; fi
 	$(ECHO) "#! #PERL# -w" | $(AWK) -f ./subst > $@
 	$(ECHO) "# nagios: -epn" >> $@
 	$(ECHO) >> $@

@@ -1,3 +1,5 @@
+* 2016-02-09 2.5
+  add glplugin submodule
 * 2016-01-27 2.3.1.1
   bugfix in backup-age (The multi-part identifier "ar.replica_id" could not be bound). Korinthenkacker!
 * 2016-01-27 2.3.1
