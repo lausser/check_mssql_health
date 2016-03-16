@@ -154,6 +154,24 @@ $plugin->add_mode(
     help => 'Free space in database',
 );
 $plugin->add_mode(
+    internal => 'server::database::databasedatafree',
+    spec => 'database-data-free',
+    alias => undef,
+    help => 'Free (data) space in database',
+);
+$plugin->add_mode(
+    internal => 'server::database::databaselogfree',
+    spec => 'database-log-free',
+    alias => undef,
+    help => 'Free (transaction log) space in database',
+);
+$plugin->add_mode(
+    internal => 'server::database::datafilefree',
+    spec => 'datafile-free',
+    alias => undef,
+    help => 'Free space in datafile',
+);
+$plugin->add_mode(
     internal => 'server::database::size',
     spec => 'database-size',
     alias => undef,

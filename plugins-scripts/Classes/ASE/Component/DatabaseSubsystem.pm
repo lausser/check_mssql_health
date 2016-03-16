@@ -115,14 +115,17 @@ use strict;
 
 sub finish {
   my $self = shift;
-return;
   if ($self->mode =~ /server::database::databasefree$/) {
-    $self->{log_size} = 0 if ! defined $self->{log_size};
-    $self->{log_used} = 0 if ! defined $self->{log_used};
-    $self->{data_used_pct} = 100 * $self->{data_used} / $self->{data_size};
-    $self->{log_used_pct} = $self->{log_size} ? 100 * $self->{log_used} / $self->{log_size} : 0;
-    $self->{data_free} = $self->{data_size} - $self->{data_used};
-    $self->{log_free} = $self->{log_size} - $self->{log_used};
+    $self->{log_max_size} = 0 if ! defined $self->{log_max_size};
+    $self->{log_used_size} = 0 if ! defined $self->{log_used_size};
+    $self->{rows_max_size} *= 1024*1024;
+    $self->{rows_used_size} *= 1024*1024;
+    $self->{log_max_size} *= 1024*1024;
+    $self->{log_used_size} *= 1024*1024;
+    $self->{rows_used_pct} = 100 * $self->{rows_used_size} / $self->{rows_max_size};
+    $self->{log_used_pct} = $self->{log_used_size} ? 100 * $self->{log_used_size} / $self->{log_max_size} : 0;
+    $self->{rows_free_size} = $self->{rows_max_size} - $self->{rows_used_size};
+    $self->{log_free_size} = $self->{log_max_size} - $self->{log_used_size};
   }
 }
 
@@ -206,7 +209,7 @@ sub check {
             $factor = 1024;
           }
         }
-        my $free_percent = 100 - 100 * $self->{$type."_used_size"} / $self->{$type."_max_size"};
+        my $free_percent = 100 - $self->{$type."_used_pct"};
         my $free_size = $self->{$type."_max_size"} - $self->{$type."_used_size"};
         my $free_units = $free_size / $factor;
         if ($self->opts->units eq "%") {

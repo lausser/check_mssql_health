@@ -14,7 +14,7 @@ sub init {
     $self->filter_name($o->{name}) && 
         ! (($self->opts->notemp && $o->is_temp) || ($self->opts->nooffline && ! $o->is_online));
   };
-  if ($self->mode =~ /server::database::(createuser|listdatabases|databasefree|transactions|datafile|size)$/) {
+  if ($self->mode =~ /server::database::(createuser|listdatabases|database.*free|transactions|datafile|size)$/) {
     my $columns = ['name', 'id', 'state', 'state_desc'];
     if ($self->version_is_minimum("9.x")) {
       $sql = q{
@@ -365,7 +365,7 @@ sub finish {
   my $self = shift;
   $self->override_opt("units", "%") if ! $self->opts->units;
   $self->{state_desc} = lc $self->{state_desc} if $self->{state_desc};
-  if ($self->mode =~ /server::database::(databasefree|size)$/) {
+  if ($self->mode =~ /server::database::(data(base.*|file)free|size)$/) {
     # privte copy for this database
     %{$self->{filesystems}} = %{$Classes::MSSQL::Component::DatabaseSubsystem::filesystems};
     my $sql;
@@ -549,7 +549,13 @@ sub check {
         $self->clear_critical();
       } 
     }
-  } elsif ($self->mode =~ /server::database::(databasefree)$/) {
+  } elsif ($self->mode =~ /server::database::(database.*free)$/) {
+    my @filetypes = qw(rows log);
+    if ($self->mode =~ /server::database::(databasedatafree)$/) {
+      @filetypes = qw(rows);
+    } elsif ($self->mode =~ /server::database::(databaselogfree)$/) {
+      @filetypes = qw(log);
+    }
     if (! $self->is_online) {
       # offlineok hat vorrang
       $self->override_opt("mitigation", $self->opts->offlineok ? 0 : $self->opts->mitigation ? $self->opts->mitigation : 1);
@@ -636,6 +642,14 @@ sub check {
             uom => '%',
         );
       }
+    }
+    if ($self->mode =~ /server::database::(databaselogfree)$/ && ! exists $self->{log_size}) {
+      $self->add_ok(sprintf "database %s has no logs", $self->{name});
+    }
+  } elsif ($self->mode =~ /server::database::datafilefree$/) {
+    foreach (@{$self->{datafiles}}) {
+      # filter name2 $_->{path}
+      $_->check();
     }
   } elsif ($self->mode =~ /server::database::online/) {
     if ($self->is_online) {
@@ -754,5 +768,11 @@ sub finish {
   $self->{size} *= 8*1024;
   $self->{max_size} *= 8*1024 if $self->{max_size} != -1;
   $self->{used_size} *= 8*1024;
+}
+
+sub check {
+  my $self = shift;
+  if ($self->mode =~ /server::database::datafilefree$/) {
+  }
 }
 

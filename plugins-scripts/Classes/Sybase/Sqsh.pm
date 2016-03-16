@@ -135,7 +135,7 @@ sub fetchall_array {
   my $self = shift;
   my $sql = shift;
   my @arguments = @_;
-  my $rows = undef;
+  my $rows = [];
   my $stderrvar = "";
   foreach (@arguments) {
     # replace the ? by the parameters
@@ -158,7 +158,8 @@ sub fetchall_array {
   if ($?) {
     my $output = do { local (@ARGV, $/) = $Monitoring::GLPlugin::DB::sql_resultfile; my $x = <>; close ARGV; $x } || '';
     $self->debug(sprintf "stderr %s", $stderrvar) ;
-    $self->add_warning($stderrvar);
+    $self->add_warning($stderrvar) if $stderrvar;
+    $self->add_warning($output);
   } else {
     my $output = do { local (@ARGV, $/) = $Monitoring::GLPlugin::DB::sql_resultfile; my $x = <>; close ARGV; $x } || '';
     my @rows = map { [
@@ -173,10 +174,6 @@ sub fetchall_array {
     $rows = \@rows;
     $self->debug(sprintf "RESULT:\n%s\n",
         Data::Dumper::Dumper($rows));
-  }
-  if ($@) {
-    $self->debug(sprintf "bumm %s", $@);
-    $self->add_critical($@);
   }
   return @{$rows};
 }
