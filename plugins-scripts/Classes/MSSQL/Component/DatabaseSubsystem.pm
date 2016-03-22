@@ -614,6 +614,10 @@ sub check {
           sprintf("error accessing %s: %s", $self->{name}, $self->is_problematic)
       );
     } else {
+      foreach (@{$self->{filegroups}}) {
+        $_->check();
+      }
+      $self->clear_ok();
       foreach my $type (@filetypes) {
         next if ! exists $self->{$type."_size"}; # not every db has a separate log
         my $metric_pct = ($type eq "rows") ?
@@ -854,6 +858,16 @@ sub check {
         $_->check();
       }
     }
+  } elsif ($self->mode =~ /server::database::(free|datafree|logfree)$/) {
+    my $metric_pct = 'grp_'.lc $self->{name}.'_free_pct';
+    my $metric_units = 'grp_'.lc $self->{name}.'_free';
+    my $metric_allocated = 'grp_'.lc $self->{name}.'_allocated_pct';
+    my ($free_percent, $free_size, $free_units, $allocated_percent, $factor) = $self->calc(
+        "filegroup", $self->{name}, "",
+        $self->{used_size}, $self->{size}, $self->{max_size},
+        $metric_pct, $metric_units, $metric_allocated
+    );
+    $self->clear_ok();
   } elsif ($self->mode =~ /server::database::filegroup::free$/) {
     my $metric_pct = 'grp_'.lc $self->{name}.'_free_pct';
     my $metric_units = 'grp_'.lc $self->{name}.'_free';
@@ -933,9 +947,9 @@ sub check {
   if ($self->mode =~ /server::database::file::list$/) {
     printf "%s %s %s %s\n", $self->{database_name}, $self->{filegroup_name}, $self->{name}, $self->{path};
   } elsif ($self->mode =~ /server::database::file::free$/) {
-    my $metric_pct = lc $self->{name}.'_free_pct';
-    my $metric_units = .lc $self->{name}.'_free';
-    my $metric_allocated = .lc $self->{name}.'_allocated_pct';
+    my $metric_pct = 'file_'.lc $self->{name}.'_free_pct';
+    my $metric_units = 'file_'.lc $self->{name}.'_free';
+    my $metric_allocated = 'file_'.lc $self->{name}.'_allocated_pct';
     my ($free_percent, $free_size, $free_units, $allocated_percent, $factor) = $self->calc(
         "file", $self->{name}, "",
         $self->{used_size}, $self->{size}, $self->{max_size},

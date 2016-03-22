@@ -8,9 +8,10 @@ sub create_cmd_line {
   my @args = ();
   if ($self->opts->server) {
     push (@args, sprintf "-S '%s'", $self->opts->server);
-  }
-  if ($self->opts->hostname) {
+  } elsif ($self->opts->hostname) {
     push (@args, sprintf "-S '%s:%d'", $self->opts->hostname, $self->opts->port || 1433);
+  } else {
+    $self->add_critical("-S oder -H waere nicht schlecht");
   }
   push (@args, sprintf "-U '%s'", $self->opts->username);
   push (@args, sprintf "-P '%s'",
