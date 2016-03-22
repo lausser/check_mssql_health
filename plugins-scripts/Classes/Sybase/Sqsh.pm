@@ -10,8 +10,7 @@ sub create_cmd_line {
     push (@args, sprintf "-S '%s'", $self->opts->server);
   }
   if ($self->opts->hostname) {
-    push (@args, sprintf "-H '%s'", $self->opts->server);
-    push (@args, sprintf "-p '%s'", $self->opts->port);
+    push (@args, sprintf "-S '%s:%d'", $self->opts->hostname, $self->opts->port || 1433);
   }
   push (@args, sprintf "-U '%s'", $self->opts->username);
   push (@args, sprintf "-P '%s'",

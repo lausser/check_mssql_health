@@ -148,28 +148,34 @@ $plugin->add_mode(
     help => 'Check if a database is online and accepting connections',
 );
 $plugin->add_mode(
-    internal => 'server::database::databasefree',
+    internal => 'server::database::free',
     spec => 'database-free',
     alias => undef,
     help => 'Free space in database',
 );
 $plugin->add_mode(
-    internal => 'server::database::databasedatafree',
+    internal => 'server::database::datafree',
     spec => 'database-data-free',
     alias => undef,
     help => 'Free (data) space in database',
 );
 $plugin->add_mode(
-    internal => 'server::database::databaselogfree',
+    internal => 'server::database::logfree',
     spec => 'database-log-free',
     alias => undef,
     help => 'Free (transaction log) space in database',
 );
 $plugin->add_mode(
-    internal => 'server::database::datafilefree',
-    spec => 'datafile-free',
+    internal => 'server::database::filegroup::free',
+    spec => 'database-filegroup-free',
     alias => undef,
-    help => 'Free space in datafile',
+    help => 'Free space in database filegroups',
+);
+$plugin->add_mode(
+    internal => 'server::database::file::free',
+    spec => 'database-file-free',
+    alias => undef,
+    help => 'Free space in database filegroups',
 );
 $plugin->add_mode(
     internal => 'server::database::size',
@@ -250,16 +256,22 @@ $plugin->add_mode(
     help => 'convenience function which creates a monitoring user',
 );
 $plugin->add_mode(
-    internal => 'server::database::listdatabases',
+    internal => 'server::database::list',
     spec => 'list-databases',
     alias => undef,
     help => 'convenience function which lists all databases',
 );
 $plugin->add_mode(
-    internal => 'server::database::datafile::listdatafiles',
-    spec => 'list-datafiles',
+    internal => 'server::database::file::list',
+    spec => 'list-database-files',
     alias => undef,
     help => 'convenience function which lists all datafiles',
+);
+$plugin->add_mode(
+    internal => 'server::database::filegroup::list',
+    spec => 'list-database-filegroups',
+    alias => undef,
+    help => 'convenience function which lists all data file groups',
 );
 $plugin->add_mode(
     internal => 'server::memorypool::lock::listlocks',
