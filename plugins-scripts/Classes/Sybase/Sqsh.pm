@@ -172,6 +172,48 @@ sub fetchall_array {
 sub execute {
   my $self = shift;
   my $sql = shift;
+  my @arguments = @_;
+  my $rows = [];
+  my $stderrvar = "";
+  foreach (@arguments) {
+    # replace the ? by the parameters
+    if (/^\d+$/) {
+      $sql =~ s/\?/$_/;
+    } else {
+      $sql =~ s/\?/'$_'/;
+    }
+  }
+  $self->set_variable("verbosity", 2);
+  $self->debug(sprintf "EXEC (? resolved):\n%s\nARGS:\n%s\n",
+      $sql, Data::Dumper::Dumper(\@arguments));
+  $self->write_extcmd_file($sql);
+  *SAVEERR = *STDERR;
+  open OUT ,'>',\$stderrvar;
+  *STDERR = *OUT;
+  $self->debug($Monitoring::GLPlugin::DB::session);
+  my $exit_output = `$Monitoring::GLPlugin::DB::session`;
+  *STDERR = *SAVEERR;
+  if ($?) {
+    my $output = do { local (@ARGV, $/) = $Monitoring::GLPlugin::DB::sql_resultfile; my $x = <>; close ARGV; $x } || '';
+    $self->debug(sprintf "stderr %s", $stderrvar) ;
+    $self->add_warning($stderrvar) if $stderrvar;
+    $self->add_warning($output);
+  } else {
+    my $output = do { local (@ARGV, $/) = $Monitoring::GLPlugin::DB::sql_resultfile; my $x = <>; close ARGV; $x } || '';
+    my @rows = map { [
+        map { $self->convert_scientific_numbers($_) }
+        map { s/^\s+([\.\d]+)$/$1/g; $_ }
+        map { s/\s+$//g; $_ }
+        split /\|/
+    ] } grep { ! /^\d+ rows selected/ }
+        grep { ! /^\d+ [Zz]eilen ausgew / }
+        grep { ! /^Elapsed: / }
+        grep { ! /^\s*$/ } map { s/^\|//; $_; } split(/\n/, $output);
+    $rows = \@rows;
+    $self->debug(sprintf "RESULT:\n%s\n",
+        Data::Dumper::Dumper($rows));
+  }
+  return @{$rows};
 }
 
 sub decode_password {

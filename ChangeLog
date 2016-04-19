@@ -1,6 +1,8 @@
+* 2016-04-19 2.6.2
+  let sql statements run into their private timeouts
+  fix create-monitoring-user
 * 2016-04-04 2.6.1
   improve backup-age runtime for large number of databases
-  let sql statements run into their private timeouts
 * 2016-03-23 2.6
   add modes database-*free-details, database-filegroup-free, database-file-free
   improved calculation of free space

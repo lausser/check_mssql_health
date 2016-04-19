@@ -245,6 +245,7 @@ sub init {
 sub check {
   my $self = shift;
   $self->add_info('checking databases');
+printf "TRACE %s %s\n", 'checking databases', $self->mode();
   if ($self->mode =~ /server::database::createuser$/) {
     # --username admin --password ... --name <db> --name2 <monuser> --name3 <monpass>
     my $user = $self->opts->name2;
@@ -373,7 +374,8 @@ sub is_temp {
 
 sub mbize {
   my $self = shift;
-  foreach (qw(max_size size used_size)) {
+  foreach (qw(max_size size used_size rows_max_size rows_size rows_used_size logs_max_size logs_size logs_used_size)) {
+    next if ! exists $self->{$_};
     $self->{$_.'_mb'} = $self->{$_} / (1024*1024);
   }
 }

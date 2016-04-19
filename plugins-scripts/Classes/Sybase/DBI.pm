@@ -4,7 +4,7 @@ use strict;
 use File::Basename;
 
 sub check_connect {
-  my $self = shift;
+  my ($self) = @_;
   my $stderrvar;
   my $dbi_options = { RaiseError => 1, AutoCommit => $self->opts->commit, PrintError => 1 };
   my $dsn = "DBI:Sybase:";
@@ -63,10 +63,7 @@ sub check_connect {
 }
 
 sub fetchrow_array {
-  my $self = shift;
-  my $sql = shift;
-  my @arguments = @_;
-  my $sth = undef;
+  my ($self, $sql, @arguments) = @_;
   my @row = ();
   my $errvar = "";
   my $stderrvar = "";
@@ -87,7 +84,7 @@ sub fetchrow_array {
     }
     $self->debug(sprintf "SQL:\n%s\nARGS:\n%s\n",
         $sql, Data::Dumper::Dumper(\@arguments));
-    $sth = $Monitoring::GLPlugin::DB::session->prepare($sql);
+    my $sth = $Monitoring::GLPlugin::DB::session->prepare($sql);
     if (scalar(@arguments)) {
       $sth->execute(@arguments) || die DBI::errstr();
     } else {
@@ -121,10 +118,7 @@ sub fetchrow_array {
 }
 
 sub fetchall_array {
-  my $self = shift;
-  my $sql = shift;
-  my @arguments = @_;
-  my $sth = undef;
+  my ($self, $sql, @arguments) = @_;
   my $rows = undef;
   my $errvar = "";
   my $stderrvar = "";
@@ -144,7 +138,7 @@ sub fetchall_array {
         return 0;
       };
     }
-    $sth = $Monitoring::GLPlugin::DB::session->prepare($sql);
+    my $sth = $Monitoring::GLPlugin::DB::session->prepare($sql);
     if (scalar(@arguments)) {
       $sth->execute(@arguments);
     } else {
@@ -153,6 +147,7 @@ sub fetchall_array {
     if ($sql !~ /^\s*dbcc /im) {
       $rows = $sth->fetchall_arrayref();
     }
+    $sth->finish();
     $self->debug(sprintf "RESULT:\n%s\n",
         Data::Dumper::Dumper($rows));
   };
@@ -170,15 +165,16 @@ sub fetchall_array {
 }
 
 sub exec_sp_1hash {
-  my $self = shift;
-  my $sql = shift;
-  my @arguments = @_;
-  my $sth = undef;
+  my ($self, $sql, @arguments) = @_;
   my $rows = undef;
+  my $stderrvar;
+  *SAVEERR = *STDERR;
+  open ERR ,'>',\$stderrvar;
+  *STDERR = *ERR;
   eval {
-    $self->debug(sprintf "SQL:\n%s\nARGS:\n%s\n",
+    $self->debug(sprintf "EXEC\n%s\nARGS:\n%s\n",
         $sql, Data::Dumper::Dumper(\@arguments));
-    $sth = $Monitoring::GLPlugin::DB::session->prepare($sql);
+    my $sth = $Monitoring::GLPlugin::DB::session->prepare($sql);
     if (scalar(@arguments)) {
       $sth->execute(@arguments);
     } else {
@@ -193,14 +189,44 @@ sub exec_sp_1hash {
     } while ($sth->{syb_more_results});
     $self->debug(sprintf "RESULT:\n%s\n",
         Data::Dumper::Dumper($rows));
+    $sth->finish();
   };
+  *STDERR = *SAVEERR;
   if ($@) {
     $self->debug(sprintf "bumm %s", $@);
     $self->add_critical($@);
     $rows = [];
+  } elsif ($stderrvar) {
+    $self->debug(sprintf "stderr %s", $stderrvar) ;
+    $self->add_warning($stderrvar);
+    $rows = [];
   }
   return @{$rows};
 }
+
+sub execute {
+  my ($self, $sql, @arguments) = @_;
+  my $stderrvar;
+  *SAVEERR = *STDERR;
+  open ERR ,'>',\$stderrvar;
+  *STDERR = *ERR;
+  eval {
+    $self->debug(sprintf "EXEC\n%s\nARGS:\n%s\n",
+        $sql, Data::Dumper::Dumper(\@arguments));
+    my $sth = $Monitoring::GLPlugin::DB::session->prepare($sql);
+    #$sth->execute();
+    $sth->finish();
+  };
+  *STDERR = *SAVEERR;
+  if ($@) {
+    $self->debug(sprintf "bumm %s", $@);
+    $self->add_critical($@);
+  } elsif ($stderrvar) {
+    $self->debug(sprintf "stderr %s", $stderrvar) ;
+    $self->add_warning($stderrvar);
+  }
+}
+
 
 sub add_dbi_funcs {
   my $self = shift;
@@ -209,6 +235,7 @@ sub add_dbi_funcs {
     no strict 'refs';
     *{'Monitoring::GLPlugin::DB::fetchall_array'} = \&{"Classes::Sybase::DBI::fetchall_array"};
     *{'Monitoring::GLPlugin::DB::fetchrow_array'} = \&{"Classes::Sybase::DBI::fetchrow_array"};
+    *{'Monitoring::GLPlugin::DB::exec_sp_1hash'} = \&{"Classes::Sybase::DBI::exec_sp_1hash"};
     *{'Monitoring::GLPlugin::DB::execute'} = \&{"Classes::Sybase::DBI::execute"};
   }
 }
