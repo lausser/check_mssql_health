@@ -166,6 +166,24 @@ $plugin->add_mode(
     help => 'Free (transaction log) space in database',
 );
 $plugin->add_mode(
+    internal => 'server::database::free::details',
+    spec => 'database-free-details',
+    alias => undef,
+    help => 'Free space in database and filegroups',
+);
+$plugin->add_mode(
+    internal => 'server::database::datafree::details',
+    spec => 'database-data-free-details',
+    alias => undef,
+    help => 'Free (data) space in database and filegroups',
+);
+$plugin->add_mode(
+    internal => 'server::database::logfree::details',
+    spec => 'database-log-free-details',
+    alias => undef,
+    help => 'Free (transaction log) space in database and filegroups',
+);
+$plugin->add_mode(
     internal => 'server::database::filegroup::free',
     spec => 'database-filegroup-free',
     alias => undef,
@@ -175,7 +193,7 @@ $plugin->add_mode(
     internal => 'server::database::file::free',
     spec => 'database-file-free',
     alias => undef,
-    help => 'Free space in database filegroups',
+    help => 'Free space in database files',
 );
 $plugin->add_mode(
     internal => 'server::database::size',

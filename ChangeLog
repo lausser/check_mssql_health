@@ -1,3 +1,9 @@
+* 2016-04-04 2.6.1
+  improve backup-age runtime for large number of databases
+  let sql statements run into their private timeouts
+* 2016-03-23 2.6
+  add modes database-*free-details, database-filegroup-free, database-file-free
+  improved calculation of free space
 * 2016-02-09 2.5
   add glplugin submodule
 * 2016-01-27 2.3.1.1

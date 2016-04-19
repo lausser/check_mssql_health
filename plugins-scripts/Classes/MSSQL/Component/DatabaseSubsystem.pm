@@ -19,10 +19,10 @@ sub init {
   my $sql = undef;
   my $allfilter = sub {
     my $o = shift;
-    $self->filter_name($o->{name}) && 
+    $self->filter_name($o->{name}) &&
         ! (($self->opts->notemp && $o->is_temp) || ($self->opts->nooffline && ! $o->is_online));
   };
-  if ($self->mode =~ /server::database::(createuser|list|free|datafree|logfree|transactions|size)$/ ||
+  if ($self->mode =~ /server::database::(createuser|list|free.*|datafree.*|logfree.*|transactions|size)$/ ||
       $self->mode =~ /server::database::(file|filegroup)/) {
     my $columns = ['name', 'id', 'state', 'state_desc'];
     if ($self->version_is_minimum("9.x")) {
@@ -44,7 +44,7 @@ sub init {
             name
       };
     }
-    if ($self->mode =~ /server::database::(free|datafree|logfree|size)$/ ||
+    if ($self->mode =~ /server::database::(free|datafree|logfree|size)/ ||
         $self->mode =~ /server::database::(file|filegroup)/) {
       $self->filesystems();
     }
@@ -56,7 +56,7 @@ sub init {
       # extra Schritt, weil finish() aufwendig ist und bei --name sparsamer aufgerufen wird
       bless $_, 'Classes::MSSQL::Component::DatabaseSubsystem::Database';
       $_->finish();
-    }   
+    }
   } elsif ($self->mode =~ /server::database::online/) {
     my $columns = ['name', 'state', 'state_desc', 'collation_name'];
     if ($self->version_is_minimum("9.x")) {
@@ -99,8 +99,8 @@ sub init {
             DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
           FROM master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
           ON b.database_name = a.name
-          GROUP BY a.name 
-          ORDER BY a.name 
+          GROUP BY a.name
+          ORDER BY a.name
         };
       }
     } elsif ($self->mode =~ /server::database::logbackupage/) {
@@ -123,9 +123,13 @@ sub init {
       }
     }
     $self->get_db_tables([
-        ['databases', $sql, 'Classes::MSSQL::Component::DatabaseSubsystem::Database', $allfilter, $columns],
+        ['databases', $sql, 'Classes::MSSQL::Component::DatabaseSubsystem::DatabaseStub', $allfilter, $columns],
     ]);
     @{$self->{databases}} =  reverse sort {$a->{name} cmp $b->{name}} @{$self->{databases}};
+    foreach (@{$self->{databases}}) {
+      bless $_, 'Classes::MSSQL::Component::DatabaseSubsystem::Database';
+      $_->finish();
+    }
   } elsif ($self->mode =~ /server::database::auto(growths|shrinks)/) {
     if ($self->version_is_minimum("9.x")) {
       my $db_columns = ['name'];
@@ -144,7 +148,7 @@ sub init {
               id = 1
           SELECT
               databasename, COUNT(*)
-          FROM 
+          FROM
               ::fn_trace_gettable(@path, 0)
           INNER JOIN
               sys.trace_events e
@@ -206,7 +210,7 @@ sub init {
               id = 1
           SELECT
               databasename, COUNT(*)
-          FROM 
+          FROM
               ::fn_trace_gettable(@path, 0)
           INNER JOIN
               sys.trace_events e
@@ -246,17 +250,17 @@ sub check {
     my $user = $self->opts->name2;
     #$user =~ s/\\/\\\\/g if $user =~ /\\/;
     $self->override_opt("name2", "[".$user."]");
-    my $sql = sprintf "CREATE LOGIN %s %s DEFAULT_DATABASE=MASTER, DEFAULT_LANGUAGE=English", 
+    my $sql = sprintf "CREATE LOGIN %s %s DEFAULT_DATABASE=MASTER, DEFAULT_LANGUAGE=English",
         $self->opts->name2,
         ($self->opts->name2 =~ /\\/) ?
             "FROM WINDOWS WITH" :
             sprintf("WITH PASSWORD='%s',", $self->opts->name3);
     $self->execute($sql);
     $self->execute(q{
-      USE MASTER GRANT VIEW SERVER STATE TO 
+      USE MASTER GRANT VIEW SERVER STATE TO
     }.$self->opts->name2);
     $self->execute(q{
-      USE MASTER GRANT ALTER trace TO 
+      USE MASTER GRANT ALTER trace TO
     }.$self->opts->name2);
     $self->execute(q{
       USE MASTER GRANT SELECT ON sys.availability_groups TO
@@ -273,16 +277,16 @@ sub check {
     $self->execute(q{
       USE MSDB CREATE USER
     }.$self->opts->name2.q{
-      FOR LOGIN 
+      FOR LOGIN
     }.$self->opts->name2);
     $self->execute(q{
-      USE MSDB GRANT SELECT ON sysjobhistory TO 
+      USE MSDB GRANT SELECT ON sysjobhistory TO
     }.$self->opts->name2);
     $self->execute(q{
-      USE MSDB GRANT SELECT ON sysjobschedules TO 
+      USE MSDB GRANT SELECT ON sysjobschedules TO
     }.$self->opts->name2);
     $self->execute(q{
-      USE MSDB GRANT SELECT ON sysjobs TO 
+      USE MSDB GRANT SELECT ON sysjobs TO
     }.$self->opts->name2);
     if (my ($code, $message) = $self->check_messages(join_all => "\n")) {
       if (grep ! /(The server principal.*already exists)|(User.*group.*role.*already exists in the current database)/, split(/\n/, $message)) {
@@ -291,7 +295,7 @@ sub check {
         foreach (@{$self->{databases}}) {
           $_->check();
         }
-      } 
+      }
     }
     $self->add_ok("have fun");
   } elsif ($self->mode =~ /server::database::.*list$/) {
@@ -381,8 +385,9 @@ use strict;
 sub finish {
   my $self = shift;
   $self->override_opt("units", "%") if ! $self->opts->units;
+  $self->{full_name} = $self->{name};
   $self->{state_desc} = lc $self->{state_desc} if $self->{state_desc};
-  if ($self->mode =~ /server::database::(free|datafree|logfree|size)$/ ||
+  if ($self->mode =~ /server::database::(free.*|datafree.*|logfree.*|size)$/ ||
       $self->mode =~ /server::database::(file|filegroup)/) {
     # private copy for this database
     %{$self->{filesystems}} = %{$Classes::MSSQL::Component::DatabaseSubsystem::filesystems};
@@ -392,31 +397,32 @@ sub finish {
     $self->{used_size} = 0;
     $self->{drive_reserve} = 0;
     my $sql;
-    my $columns = ['filegroup_name', 'name', 'is_media_read_only', 'is_read_only',
+    my $columns = ['database_name', 'filegroup_name', 'name', 'is_media_read_only', 'is_read_only',
         'is_sparse', 'size', 'max_size', 'growth', 'is_percent_growth',
         'used_size', 'type', 'state', 'drive', 'path'];
     if ($self->version_is_minimum("9.x")) {
       $sql = q{
-        USE 
+        USE
       [}.$self->{name}.q{]
         SELECT
+          '}.$self->{name}.q{',
           ISNULL(fg.name, 'TLOGS'),
           dbf.name,
           dbf.is_media_read_only,
           dbf.is_read_only,
           dbf.is_sparse, -- erstmal wurscht, evt. sys.dm_io_virtual_file_stats fragen
-          -- dbf.size * 8.0 * 1024, 
-          -- dbf.max_size * 8.0 * 1024 AS max_size, 
+          -- dbf.size * 8.0 * 1024,
+          -- dbf.max_size * 8.0 * 1024 AS max_size,
           -- dbf.growth,
           -- FILEPROPERTY(dbf.NAME,'SpaceUsed') * 8.0 * 1024 AS used_size,
-          dbf.size, 
+          dbf.size,
           dbf.max_size,
           dbf.growth,
           dbf.is_percent_growth,
           FILEPROPERTY(dbf.NAME,'SpaceUsed') AS used_size,
           dbf.type_desc,
           dbf.state_desc,
-          UPPER(SUBSTRING(dbf.physical_name, 1, 1)) AS filesystem_drive_letter,         
+          UPPER(SUBSTRING(dbf.physical_name, 1, 1)) AS filesystem_drive_letter,
           dbf.physical_name AS filesystem_path
         FROM
           sys.database_files AS dbf --use sys.master_files if the database is read only (more recent data)
@@ -425,7 +431,7 @@ sub finish {
           -- das kracht bei 2005-compatibility-dbs wegen irgendeines ansi-92/outer-join syntaxmischmaschs
           sys.filegroups AS fg
         ON
-          dbf.data_space_id = fg.data_space_id 
+          dbf.data_space_id = fg.data_space_id
       };
     }
     if ($self->is_online) {
@@ -443,6 +449,7 @@ sub finish {
                 database_name => $self->{name},
                 files => [grep { $_->{filegroup_name} eq $group } @{$self->{files}}],
         ));
+      #  @{$self->{files}} = grep { $_->{filegroup_name} eq $group } @{$self->{files}};
       }
       delete $self->{files};
       # $filegroup->{drive_reserve} ist mehrstufig, drives jeweils extra
@@ -481,14 +488,14 @@ sub finish {
     $self->mbize();
   } elsif ($self->mode =~ /server::database::(.*backupage)$/) {
     if ($self->version_is_minimum("11.x")) {
-      my @replicated_databases = $self->fetchall_array(q{
-        SELECT 
+      my @replicated_databases = $self->fetchall_array_cached(q{
+        SELECT
           DISTINCT CS.database_name AS [DatabaseName]
         FROM
           master.sys.availability_groups AS AG
         INNER JOIN
           master.sys.availability_replicas AS AR ON AG.group_id = AR.group_id
-        INNER JOIN 
+        INNER JOIN
           master.sys.dm_hadr_database_replica_cluster_states AS CS
         ON
           AR.replica_id = CS.replica_id
@@ -513,7 +520,7 @@ sub finish {
     ]);
     return if $self->check_messages();
     my $label = $self->{name}.'_transactions_per_sec';
-    my $autoclosed = 0; 
+    my $autoclosed = 0;
     if ($self->{name} ne '_Total' && $self->version_is_minimum("9.x")) {
       my $sql = q{
           SELECT is_cleanly_shutdown, CAST(DATABASEPROPERTYEX('?', 'isautoclose') AS VARCHAR)
@@ -522,25 +529,25 @@ sub finish {
       my @autoclose = $self->fetchrow_array($sql);
       if ($autoclose[0] == 1 && $autoclose[1] == 1) {
         $autoclosed = 1;
-      }      
-    }      
+      }
+    }
     if ($autoclosed) {
       $self->{transactions_per_sec} = 0;
     }
     $self->set_thresholds(
         metric => $label,
-        warning => 10000, critical => 50000 
-    );  
+        warning => 10000, critical => 50000
+    );
     $self->add_message($self->check_thresholds(
         metric => $label,
         value => $self->{transactions_per_sec},
     ), sprintf "%s has %.4f transactions / sec",
         $self->{name}, $self->{transactions_per_sec}
-    );  
+    );
     $self->add_perfdata(
         label => $label,
         value => $self->{transactions_per_sec},
-    );  
+    );
   }
 }
 
@@ -550,41 +557,41 @@ sub check {
     printf "%s\n", $self->{name};
   } elsif ($self->mode =~ /server::database::createuser$/) {
     $self->execute(q{
-      USE 
+      USE
     }.$self->{name}.q{
       CREATE ROLE CHECKMSSQLHEALTH
     });
     $self->execute(q{
       USE
     }.$self->{name}.q{
-      GRANT EXECUTE TO 
+      GRANT EXECUTE TO
     }.$self->opts->name2);
     $self->execute(q{
       USE
     }.$self->{name}.q{
-      GRANT VIEW DATABASE STATE TO 
+      GRANT VIEW DATABASE STATE TO
     }.$self->opts->name2);
     $self->execute(q{
       USE
     }.$self->{name}.q{
-      GRANT VIEW DEFINITION TO 
+      GRANT VIEW DEFINITION TO
     }.$self->opts->name2);
     $self->execute(q{
       USE
     }.$self->{name}.q{
-      CREATE USER 
+      CREATE USER
     }.$self->opts->name2.q{
-      FOR LOGIN 
+      FOR LOGIN
     }.$self->opts->name2);
     $self->execute(q{
       USE
     }.$self->{name}.q{
-      EXEC sp_addrolemember CHECKMSSQLHEALTH, 
+      EXEC sp_addrolemember CHECKMSSQLHEALTH,
     }.$self->opts->name2);
     if (my ($code, $message) = $self->check_messages(join_all => "\n")) {
       if (! grep ! /User.*group.*role.*already exists in the current database/, split(/\n/, $message)) {
         $self->clear_critical();
-      } 
+      }
     }
   } elsif ($self->mode =~ /server::database::(filegroup|file)/) {
     foreach (@{$self->{filegroups}}) {
@@ -592,11 +599,11 @@ sub check {
         $_->check();
       }
     }
-  } elsif ($self->mode =~ /server::database::(free|datafree|logfree)$/) {
+  } elsif ($self->mode =~ /server::database::(free|datafree|logfree)/) {
     my @filetypes = qw(rows logs);
-    if ($self->mode =~ /server::database::datafree$/) {
+    if ($self->mode =~ /server::database::datafree/) {
       @filetypes = qw(rows);
-    } elsif ($self->mode =~ /server::database::logfree$/) {
+    } elsif ($self->mode =~ /server::database::logfree/) {
       @filetypes = qw(logs);
     }
     if (! $self->is_online) {
@@ -622,12 +629,12 @@ sub check {
         next if ! exists $self->{$type."_size"}; # not every db has a separate log
         my $metric_pct = ($type eq "rows") ?
             'db_'.lc $self->{name}.'_free_pct' : 'db_'.lc $self->{name}.'_log_free_pct';
-        my $metric_units = ($type eq "rows") ? 
+        my $metric_units = ($type eq "rows") ?
             'db_'.lc $self->{name}.'_free' : 'db_'.lc $self->{name}.'_log_free';
         my $metric_allocated = ($type eq "rows") ?
             'db_'.lc $self->{name}.'_allocated_pct' : 'db_'.lc $self->{name}.'_log_allocated_pct';
         my ($free_percent, $free_size, $free_units, $allocated_percent, $factor) = $self->calc(
-            'database', $self->{name}, $type, 
+            'database', $self->{full_name}, $type,
             $self->{$type."_used_size"}, $self->{$type."_size"}, $self->{$type."_max_size"},
             $metric_pct, $metric_units, $metric_allocated
         );
@@ -653,7 +660,7 @@ sub check {
         );
       }
     }
-    if ($self->mode =~ /server::database::logfree$/ && ! exists $self->{log_size}) {
+    if ($self->mode =~ /server::database::logfree/ && ! exists $self->{logs_size}) {
       $self->add_ok(sprintf "database %s has no logs", $self->{name});
     }
   } elsif ($self->mode =~ /server::database::online/) {
@@ -688,13 +695,13 @@ sub check {
         value => $self->{rows_size} / $factor,
         uom => $self->opts->units,
     );
-    if ($self->{log_size}) {
-      $self->add_ok(sprintf "db %s allocated %.4f%s",
-          $self->{name}, $self->{log_size} / $factor,
+    if ($self->{logs_size}) {
+      $self->add_ok(sprintf "db %s logs allocated %.4f%s",
+          $self->{name}, $self->{logs_size} / $factor,
           $self->opts->units);
       $self->add_perfdata(
-          label => 'db_'.$self->{name}.'_alloc_log_size',
-          value => $self->{log_size} / $factor,
+          label => 'db_'.$self->{name}.'_alloc_logs_size',
+          value => $self->{logs_size} / $factor,
           uom => $self->opts->units,
       );
     }
@@ -741,8 +748,8 @@ sub check {
         $type, ($self->mode =~ /server::database::autogrowths/) ? "grow" : "shrink";
     $self->set_thresholds(
         metric => $label,
-        warning => 1, critical => 5 
-    );  
+        warning => 1, critical => 5
+    );
     $self->add_message(
         $self->check_thresholds(metric => $label, value => $self->{autogrowshrink}),
         sprintf "%s had %d %sfile auto %s events in the last %d minutes", $self->{name},
@@ -755,8 +762,8 @@ sub check {
     my $label = "dbcc_shrinks";
     $self->set_thresholds(
         metric => $label,
-        warning => 1, critical => 5 
-    );  
+        warning => 1, critical => 5
+    );
     $self->add_message(
         $self->check_thresholds(metric => $label, value => $self->{autogrowshrink}),
         sprintf "%s had %d DBCC Shrink events in the last %d minutes", $self->{name}, $self->{autogrowshrink}, $self->{growshrinkinterval});
@@ -789,17 +796,17 @@ sub calc {
   if ($self->opts->units eq "%") {
     $self->set_thresholds(metric => $metric_pct, warning => "10:", critical => "5:");
     ($warning_pct, $critical_pct) = ($self->get_thresholds(metric => $metric_pct));
-    ($warning_units, $critical_units) = map { 
+    ($warning_units, $critical_units) = map {
         # sonst schnippelt der von den originalen den : weg
         $_ =~ s/://g; (($_ * $max_size / 100) / $factor).":";
-    } map { my $tmp = $_; $tmp; } ($warning_pct, $critical_pct); 
+    } map { my $tmp = $_; $tmp; } ($warning_pct, $critical_pct);
     $self->set_thresholds(metric => $metric_units, warning => $warning_units, critical => $critical_units);
     $self->add_message($self->check_thresholds(metric => $metric_pct, value => $free_percent),
         sprintf("%s %s has %.2f%s free %sspace left", $item, $name, $free_percent, $self->opts->units, ($type eq "logs" ? "log " : "")));
   } else {
     $self->set_thresholds(metric => $metric_units, warning => "5:", critical => "10:");
     ($warning_units, $critical_units) = ($self->get_thresholds(metric => $metric_units));
-    ($warning_pct, $critical_pct) = map { 
+    ($warning_pct, $critical_pct) = map {
         $_ =~ s/://g; (100 * ($_ * $factor) / $max_size).":";
     } map { my $tmp = $_; $tmp; } ($warning_units, $critical_units);
     $self->set_thresholds(metric => $metric_pct, warning => $warning_pct, critical => $critical_pct);
@@ -817,6 +824,8 @@ sub finish {
   my ($self, %params) = @_;
   %{$self->{filesystems}} = %{$Classes::MSSQL::Component::DatabaseSubsystem::filesystems};
   my @filesystems = keys %{$self->{filesystems}};
+  $self->{full_name} = sprintf "%s::%s",
+      $self->{database_name}, $self->{name};
   $self->{size} = 0;
   $self->{max_size} = 0;
   $self->{used_size} = 0;
@@ -849,6 +858,11 @@ sub finish {
 
 sub check {
   my ($self) = @_;
+  if ($self->mode =~ /server::database::datafree/ && $self->{type} eq "LOG") {
+    return;
+  } elsif ($self->mode =~ /server::database::logfree/ && $self->{type} ne "LOG") {
+    return;
+  }
   if ($self->mode =~ /server::database::filegroup::list$/) {
     printf "%s %s %d\n", $self->{database_name}, $self->{name}, scalar(@{$self->{files}});
   } elsif ($self->mode =~ /server::database::file::list/) {
@@ -859,21 +873,21 @@ sub check {
       }
     }
   } elsif ($self->mode =~ /server::database::(free|datafree|logfree)$/) {
-    my $metric_pct = 'grp_'.lc $self->{name}.'_free_pct';
-    my $metric_units = 'grp_'.lc $self->{name}.'_free';
-    my $metric_allocated = 'grp_'.lc $self->{name}.'_allocated_pct';
+    my $metric_pct = 'grp_'.lc $self->{full_name}.'_free_pct';
+    my $metric_units = 'grp_'.lc $self->{full_name}.'_free';
+    my $metric_allocated = 'grp_'.lc $self->{full_name}.'_allocated_pct';
     my ($free_percent, $free_size, $free_units, $allocated_percent, $factor) = $self->calc(
-        "filegroup", $self->{name}, "",
+        "filegroup", $self->{full_name}, "",
         $self->{used_size}, $self->{size}, $self->{max_size},
         $metric_pct, $metric_units, $metric_allocated
     );
-    $self->clear_ok();
-  } elsif ($self->mode =~ /server::database::filegroup::free$/) {
-    my $metric_pct = 'grp_'.lc $self->{name}.'_free_pct';
-    my $metric_units = 'grp_'.lc $self->{name}.'_free';
-    my $metric_allocated = 'grp_'.lc $self->{name}.'_allocated_pct';
+  } elsif ($self->mode =~ /server::database::filegroup::free$/ ||
+      $self->mode =~ /server::database::(free|datafree|logfree)::details/) {
+    my $metric_pct = 'grp_'.lc $self->{full_name}.'_free_pct';
+    my $metric_units = 'grp_'.lc $self->{full_name}.'_free';
+    my $metric_allocated = 'grp_'.lc $self->{full_name}.'_allocated_pct';
     my ($free_percent, $free_size, $free_units, $allocated_percent, $factor) = $self->calc(
-        "filegroup", $self->{name}, "",
+        "filegroup", $self->{full_name}, "",
         $self->{used_size}, $self->{size}, $self->{max_size},
         $metric_pct, $metric_units, $metric_allocated
     );
@@ -913,30 +927,37 @@ use strict;
 sub finish {
   my ($self) = @_;
   %{$self->{filesystems}} = %{$Classes::MSSQL::Component::DatabaseSubsystem::filesystems};
+  $self->{full_name} = sprintf "%s::%s::%s",
+      $self->{database_name}, $self->{filegroup_name}, $self->{name};
   # 8k-pages, umrechnen in bytes
   $self->{size} *= 8*1024;
+  $self->{used_size} ||= 0; # undef kommt vor, alles schon gesehen.
   $self->{used_size} *= 8*1024;
   $self->{max_size} =~ s/\.$//g;
   if ($self->{growth} == 0) {
     # ist schon am anschlag
-    $self->{max_size} = $self->{size}; 
+    $self->{max_size} = $self->{size};
     $self->{drive_reserve}->{$self->{drive}} = 0;
     $self->{formula} = sprintf "f %15s fixed %d (%dMB)", $self->{name}, $self->{max_size}, $self->{max_size} / 1048576;
+    $self->{growth_desc} = "fixed size";
   } else {
     if ($self->{max_size} == -1) {
       # kann unbegrenzt wachsen, bis das filesystem voll ist.
       $self->{max_size} = $self->{size} + $self->{filesystems}->{$self->{drive}};
       $self->{drive_reserve}->{$self->{drive}} = 1;
       $self->{formula} = sprintf "f %15s ulimt %d (%dMB)", $self->{name}, $self->{max_size}, $self->{max_size} / 1048576;
+      $self->{growth_desc} = "unlimited size";
     } elsif ($self->{max_size} == 268435456) {
       $self->{max_size} = 2 * 1024 * 1024 * 1024 * 1024;
       $self->{formula} = sprintf "f %15s ulims %d (%dMB)", $self->{name}, $self->{max_size}, $self->{max_size} / 1048576;
       $self->{drive_reserve}->{$self->{drive}} = 0;
+      $self->{growth_desc} = "limited to 2TB";
     } else {
       # hat eine obergrenze
       $self->{max_size} *= 8*1024;
       $self->{formula} = sprintf "f %15s  limt %d (%dMB)", $self->{name}, $self->{max_size}, $self->{max_size} / 1048576;
       $self->{drive_reserve}->{$self->{drive}} = 0;
+      $self->{growth_desc} = "limited";
     }
   }
   $self->mbize();
@@ -947,11 +968,11 @@ sub check {
   if ($self->mode =~ /server::database::file::list$/) {
     printf "%s %s %s %s\n", $self->{database_name}, $self->{filegroup_name}, $self->{name}, $self->{path};
   } elsif ($self->mode =~ /server::database::file::free$/) {
-    my $metric_pct = 'file_'.lc $self->{name}.'_free_pct';
-    my $metric_units = 'file_'.lc $self->{name}.'_free';
-    my $metric_allocated = 'file_'.lc $self->{name}.'_allocated_pct';
+    my $metric_pct = 'file_'.lc $self->{full_name}.'_free_pct';
+    my $metric_units = 'file_'.lc $self->{full_name}.'_free';
+    my $metric_allocated = 'file_'.lc $self->{full_name}.'_allocated_pct';
     my ($free_percent, $free_size, $free_units, $allocated_percent, $factor) = $self->calc(
-        "file", $self->{name}, "",
+        "file", $self->{full_name}, "",
         $self->{used_size}, $self->{size}, $self->{max_size},
         $metric_pct, $metric_units, $metric_allocated
     );

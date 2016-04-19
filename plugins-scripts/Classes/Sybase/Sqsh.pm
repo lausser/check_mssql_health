@@ -16,9 +16,9 @@ sub create_cmd_line {
   push (@args, sprintf "-U '%s'", $self->opts->username);
   push (@args, sprintf "-P '%s'",
       $self->decode_password($self->opts->password));
-  push (@args, sprintf "-i '%s'", 
+  push (@args, sprintf "-i '%s'",
       $Monitoring::GLPlugin::DB::sql_commandfile);
-  push (@args, sprintf "-o '%s'", 
+  push (@args, sprintf "-o '%s'",
       $Monitoring::GLPlugin::DB::sql_resultfile);
   if ($self->opts->currentdb) {
     push (@args, sprintf "-D '%s'", $self->opts->currentdb);
@@ -38,20 +38,9 @@ sub check_connect {
   $self->create_extcmd_files();
   $self->create_cmd_line();
   eval {
-    use POSIX ':signal_h';
-    if ($^O =~ /MSWin/) {
-      local $SIG{'ALRM'} = sub {
-        die "alrm";
-      };
-    } else {
-      my $mask = POSIX::SigSet->new( SIGALRM );
-      my $action = POSIX::SigAction->new(
-          sub { die "alrm"; }, $mask
-      );
-      my $oldaction = POSIX::SigAction->new();
-      sigaction(SIGALRM ,$action ,$oldaction );
-    }
-    alarm($self->opts->timeout - 1); # 1 second before the global unknown timeout
+    $self->set_timeout_alarm($self->opts->timeout - 1, sub {
+      die "alrm";
+    });
     *SAVEERR = *STDERR;
     open OUT ,'>',\$stderrvar;
     *STDERR = *OUT;
@@ -73,6 +62,8 @@ sub check_connect {
     }
   } elsif ($stderrvar && $stderrvar =~ /can't change context to database/) {
     $self->add_critical($stderrvar);
+  } else {
+    $self->set_timeout_alarm($self->opts->timeout - ($self->{tac} - $self->{tic}));
   }
 }
 

@@ -21,20 +21,9 @@ sub check_connect {
   $self->set_variable("dsn", $dsn);
   eval {
     require DBI;
-    use POSIX ':signal_h';
-    if ($^O =~ /MSWin/) {
-      local $SIG{'ALRM'} = sub {
-        die "alrm";
-      };
-    } else {
-      my $mask = POSIX::SigSet->new( SIGALRM );
-      my $action = POSIX::SigAction->new(
-          sub { die "alrm"; }, $mask
-      );
-      my $oldaction = POSIX::SigAction->new();
-      sigaction(SIGALRM ,$action ,$oldaction );
-    }
-    alarm($self->opts->timeout - 1); # 1 second before the global unknown timeout
+    $self->set_timeout_alarm($self->opts->timeout - 1, sub {
+      die "alrm";
+    });  
     *SAVEERR = *STDERR;
     open OUT ,'>',\$stderrvar;
     *STDERR = *OUT;
@@ -59,6 +48,8 @@ sub check_connect {
     }
   } elsif (! $self->{handle}) {
     $self->add_critical("no connection");
+  } else {
+    $self->set_timeout_alarm($self->opts->timeout - ($self->{tac} - $self->{tic}));
   }
 }
 
