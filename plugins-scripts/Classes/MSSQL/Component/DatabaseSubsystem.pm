@@ -245,7 +245,6 @@ sub init {
 sub check {
   my $self = shift;
   $self->add_info('checking databases');
-printf "TRACE %s %s\n", 'checking databases', $self->mode();
   if ($self->mode =~ /server::database::createuser$/) {
     # --username admin --password ... --name <db> --name2 <monuser> --name3 <monpass>
     my $user = $self->opts->name2;

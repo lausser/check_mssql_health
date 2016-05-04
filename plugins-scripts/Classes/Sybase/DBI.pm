@@ -43,6 +43,7 @@ sub check_connect {
       $Monitoring::GLPlugin::DB::session = $self->{handle};
     }
     $self->{tac} = Time::HiRes::time();
+    $Monitoring::GLPlugin::DB::session->{syb_flush_finish} = 1;
     *STDERR = *SAVEERR;
   };
   if ($@) {
