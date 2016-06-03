@@ -1,3 +1,8 @@
+* 2016-06-03 2.6.2.3
+  update GLPlugin
+* 2016-05-11 2.6.2.2
+  unset syb_flush_finish
+  use NOLOCK for msdb.dbo.backupset, otherwise selects during backups take too long
 * 2016-05-02 2.6.2.1
   set syb_flush_finish
 * 2016-04-19 2.6.2

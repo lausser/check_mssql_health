@@ -79,7 +79,7 @@ sub init {
             SELECT BS.[database_name],
             DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup,
             DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
-            FROM msdb.dbo.backupset BS
+            FROM msdb.dbo.backupset BS WITH (NOLOCK)
             WHERE BS.type IN ('D', 'I')
             GROUP BY BS.[database_name]
           ) BS1 ON D.name = BS1.[database_name] WHERE D.source_database_id IS NULL
@@ -112,7 +112,7 @@ sub init {
             SELECT BS.[database_name],
             DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup,
             DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
-            FROM msdb.dbo.backupset BS
+            FROM msdb.dbo.backupset BS WITH (NOLOCK)
             WHERE BS.type = 'L'
             GROUP BY BS.[database_name]
           ) BS1 ON D.name = BS1.[database_name] WHERE D.source_database_id IS NULL
@@ -154,10 +154,10 @@ sub init {
               sys.trace_events e
           ON
               eventclass = trace_event_id
-          INNER JOIN
-              sys.trace_categories AS cat
-          ON
-              e.category_id = cat.category_id
+          -- INNER JOIN
+          --    sys.trace_categories AS cat
+          -- ON
+          --     e.category_id = cat.category_id
           WHERE
               e.name IN( EVENTNAME ) AND datediff(Minute, starttime, current_timestamp) < ?
           GROUP BY
@@ -216,10 +216,10 @@ sub init {
               sys.trace_events e
           ON
               eventclass = trace_event_id
-          INNER JOIN
-              sys.trace_categories AS cat
-          ON
-              e.category_id = cat.category_id
+          -- INNER JOIN
+          --     sys.trace_categories AS cat
+          -- ON
+          --     e.category_id = cat.category_id
           WHERE
               EventClass = 116 AND TEXTData LIKE '%SHRINK%' AND datediff(Minute, starttime, current_timestamp) < ?
           GROUP BY
