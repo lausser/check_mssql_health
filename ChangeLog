@@ -1,3 +1,5 @@
+* 2016-06-23 2.6.3.1
+  use AlwaysOn tables only if enabled
 * 2016-06-23 2.6.3
   fix create-database-user, fix execute error handling
 * 2016-06-20 2.6.2.4

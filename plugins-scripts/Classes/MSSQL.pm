@@ -24,6 +24,9 @@ sub init {
   } else {
     $self->set_variable("servicename", 'SQLServer');
   }
+  $self->set_variable("ishadrenabled", $self->fetchrow_array(
+      q{ SELECT CAST(COALESCE(SERVERPROPERTY('IsHadrEnabled'), 0) as int) }
+  ));
   if ($self->mode =~ /^server::connectedusers/) {
     my $connectedusers;
     if ($self->get_variable("product") eq "ASE") {

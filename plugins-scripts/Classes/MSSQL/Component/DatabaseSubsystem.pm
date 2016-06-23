@@ -272,18 +272,20 @@ sub check {
     $self->execute(q{
       USE MASTER GRANT ALTER trace TO
     }.$self->opts->name2);
-    $self->execute(q{
-      USE MASTER GRANT SELECT ON sys.availability_groups TO
-    }.$self->opts->name2);
-    $self->execute(q{
-      USE MASTER GRANT SELECT ON sys.availability_replicas TO
-    }.$self->opts->name2);
-    $self->execute(q{
-      USE MASTER GRANT SELECT ON sys.dm_hadr_database_replica_cluster_states TO
-    }.$self->opts->name2);
-    $self->execute(q{
-      USE MASTER GRANT SELECT ON sys.fn_hadr_backup_is_preferred_replica TO
-    }.$self->opts->name2);
+    if ($self->get_variable('ishadrenabled')) {
+      $self->execute(q{
+        USE MASTER GRANT SELECT ON sys.availability_groups TO
+      }.$self->opts->name2);
+      $self->execute(q{
+        USE MASTER GRANT SELECT ON sys.availability_replicas TO
+      }.$self->opts->name2);
+      $self->execute(q{
+        USE MASTER GRANT SELECT ON sys.dm_hadr_database_replica_cluster_states TO
+      }.$self->opts->name2);
+      $self->execute(q{
+        USE MASTER GRANT SELECT ON sys.fn_hadr_backup_is_preferred_replica TO
+      }.$self->opts->name2);
+    }
     $self->execute(q{
       USE MSDB CREATE USER
     }.$self->opts->name2.q{
@@ -499,28 +501,32 @@ sub finish {
     $self->mbize();
   } elsif ($self->mode =~ /server::database::(.*backupage)$/) {
     if ($self->version_is_minimum("11.x")) {
-      my @replicated_databases = $self->fetchall_array_cached(q{
-        SELECT
-          DISTINCT CS.database_name AS [DatabaseName]
-        FROM
-          master.sys.availability_groups AS AG
-        INNER JOIN
-          master.sys.availability_replicas AS AR ON AG.group_id = AR.group_id
-        INNER JOIN
-          master.sys.dm_hadr_database_replica_cluster_states AS CS
-        ON
-          AR.replica_id = CS.replica_id
-        WHERE
-          CS.is_database_joined = 1 -- DB muss aktuell auch in AG aktiv sein
-      });
-      if (grep { $self->{name} eq $_->[0] } @replicated_databases) {
-        # this database is part of an availability group
-        # find out if we are the preferred node, where the backup takes place
-        $self->{preferred_replica} = $self->fetchrow_array(q{
-          SELECT sys.fn_hadr_backup_is_preferred_replica(?)
-        }, $self->{name});
+      if ($self->get_variable('ishadrenabled')) {
+        my @replicated_databases = $self->fetchall_array_cached(q{
+          SELECT
+            DISTINCT CS.database_name AS [DatabaseName]
+          FROM
+            master.sys.availability_groups AS AG
+          INNER JOIN
+            master.sys.availability_replicas AS AR ON AG.group_id = AR.group_id
+          INNER JOIN
+            master.sys.dm_hadr_database_replica_cluster_states AS CS
+          ON
+            AR.replica_id = CS.replica_id
+          WHERE
+            CS.is_database_joined = 1 -- DB muss aktuell auch in AG aktiv sein
+        });
+        if (grep { $self->{name} eq $_->[0] } @replicated_databases) {
+          # this database is part of an availability group
+          # find out if we are the preferred node, where the backup takes place
+          $self->{preferred_replica} = $self->fetchrow_array(q{
+            SELECT sys.fn_hadr_backup_is_preferred_replica(?)
+          }, $self->{name});
+        } else {
+          # -> every node hat to be backupped, the db is local on every node
+          $self->{preferred_replica} = 1;
+        }
       } else {
-        # -> every node hat to be backupped, the db is local on every node
         $self->{preferred_replica} = 1;
       }
     }
