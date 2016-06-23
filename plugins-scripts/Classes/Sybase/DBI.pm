@@ -207,7 +207,17 @@ sub exec_sp_1hash {
 
 sub execute {
   my ($self, $sql, @arguments) = @_;
-  my $stderrvar;
+  my $errvar = "";
+  my $stderrvar = "";
+  $Monitoring::GLPlugin::DB::session->{syb_err_handler} = sub {
+    # exec sometimes a status code which, if not caught by this handler,
+    # is output to stderr. So even if the procedure was run correctly
+    # there may be a warning
+    my($err, $sev, $state, $line, $server,
+        $proc, $msg, $sql, $err_type) = @_;
+    $errvar = join("\n", (split(/\n/, $errvar), $msg));
+    return 0;
+  };
   *SAVEERR = *STDERR;
   open ERR ,'>',\$stderrvar;
   *STDERR = *ERR;
@@ -215,16 +225,17 @@ sub execute {
     $self->debug(sprintf "EXEC\n%s\nARGS:\n%s\n",
         $sql, Data::Dumper::Dumper(\@arguments));
     my $sth = $Monitoring::GLPlugin::DB::session->prepare($sql);
-    #$sth->execute();
+    $sth->execute();
     $sth->finish();
   };
   *STDERR = *SAVEERR;
   if ($@) {
     $self->debug(sprintf "bumm %s", $@);
     $self->add_critical($@);
-  } elsif ($stderrvar) {
-    $self->debug(sprintf "stderr %s", $stderrvar) ;
-    $self->add_warning($stderrvar);
+  } elsif ($stderrvar || $errvar) {
+    $errvar = join("\n", (split(/\n/, $errvar), $stderrvar));
+    $self->debug(sprintf "stderr %s", $errvar) ;
+    $self->add_warning($errvar);
   }
 }
 

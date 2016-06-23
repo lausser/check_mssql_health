@@ -22,7 +22,7 @@ sub init {
     $self->filter_name($o->{name}) &&
         ! (($self->opts->notemp && $o->is_temp) || ($self->opts->nooffline && ! $o->is_online));
   };
-  if ($self->mode =~ /server::database::(createuser|list|free.*|datafree.*|logfree.*|transactions|size)$/ ||
+  if ($self->mode =~ /server::database::(createuser|deleteuser|list|free.*|datafree.*|logfree.*|transactions|size)$/ ||
       $self->mode =~ /server::database::(file|filegroup)/) {
     my $columns = ['name', 'id', 'state', 'state_desc'];
     if ($self->version_is_minimum("9.x")) {
@@ -245,7 +245,17 @@ sub init {
 sub check {
   my $self = shift;
   $self->add_info('checking databases');
-  if ($self->mode =~ /server::database::createuser$/) {
+  if ($self->mode =~ /server::database::deleteuser$/) {
+    foreach (@{$self->{databases}}) {
+      $_->check();
+    }
+    $self->execute(q{
+      USE MASTER DROP USER
+    }.$self->opts->name2);
+    $self->execute(q{
+      USE MASTER DROP LOGIN
+    }.$self->opts->name2);
+  } elsif ($self->mode =~ /server::database::createuser$/) {
     # --username admin --password ... --name <db> --name2 <monuser> --name3 <monpass>
     my $user = $self->opts->name2;
     #$user =~ s/\\/\\\\/g if $user =~ /\\/;
@@ -289,8 +299,8 @@ sub check {
       USE MSDB GRANT SELECT ON sysjobs TO
     }.$self->opts->name2);
     if (my ($code, $message) = $self->check_messages(join_all => "\n")) {
+printf "CODE %d MESS %s\n", $code, $message;
       if (grep ! /(The server principal.*already exists)|(User.*group.*role.*already exists in the current database)/, split(/\n/, $message)) {
-      } else {
         $self->clear_critical();
         foreach (@{$self->{databases}}) {
           $_->check();
@@ -556,12 +566,35 @@ sub check {
   my $self = shift;
   if ($self->mode =~ /server::database::list$/) {
     printf "%s\n", $self->{name};
+  } elsif ($self->mode =~ /server::database::deleteuser$/) {
+    $self->execute(q{
+      USE
+    }.$self->{name}.q{
+      DROP USER
+    }.$self->opts->name2);
+    $self->execute(q{
+      USE
+    }.$self->{name}.q{
+      DROP ROLE CHECKMSSQLHEALTH
+    });
   } elsif ($self->mode =~ /server::database::createuser$/) {
+    $self->execute(q{
+      USE
+    }.$self->{name}.q{
+      CREATE USER
+    }.$self->opts->name2.q{
+      FOR LOGIN
+    }.$self->opts->name2) if $self->{name} ne "msdb";
     $self->execute(q{
       USE
     }.$self->{name}.q{
       CREATE ROLE CHECKMSSQLHEALTH
     });
+    $self->execute(q{
+      USE
+    }.$self->{name}.q{
+      EXEC sp_addrolemember CHECKMSSQLHEALTH,
+    }.$self->opts->name2);
     $self->execute(q{
       USE
     }.$self->{name}.q{
@@ -577,20 +610,11 @@ sub check {
     }.$self->{name}.q{
       GRANT VIEW DEFINITION TO
     }.$self->opts->name2);
-    $self->execute(q{
-      USE
-    }.$self->{name}.q{
-      CREATE USER
-    }.$self->opts->name2.q{
-      FOR LOGIN
-    }.$self->opts->name2);
-    $self->execute(q{
-      USE
-    }.$self->{name}.q{
-      EXEC sp_addrolemember CHECKMSSQLHEALTH,
-    }.$self->opts->name2);
     if (my ($code, $message) = $self->check_messages(join_all => "\n")) {
       if (! grep ! /User.*group.*role.*already exists in the current database/, split(/\n/, $message)) {
+        $self->clear_critical();
+      }
+      if (! grep ! /availability_groups.*because it does not exist/, split(/\n/, $message)) {
         $self->clear_critical();
       }
     }

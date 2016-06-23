@@ -274,6 +274,12 @@ $plugin->add_mode(
     help => 'convenience function which creates a monitoring user',
 );
 $plugin->add_mode(
+    internal => 'server::database::deleteuser',
+    spec => 'delete-monitoring-user',
+    alias => undef,
+    help => 'convenience function which deletes a monitoring user',
+);
+$plugin->add_mode(
     internal => 'server::database::list',
     spec => 'list-databases',
     alias => undef,
