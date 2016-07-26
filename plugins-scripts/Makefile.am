@@ -11,6 +11,7 @@ GL_MODULES=\
   ../GLPlugin/lib/Monitoring/GLPlugin/DB/Item.pm \
   ../GLPlugin/lib/Monitoring/GLPlugin/DB/TableItem.pm
 EXTRA_MODULES=\
+  Classes/MSSQL/Component/AvailabilitygroupSubsystem.pm \
   Classes/MSSQL/Component/DatabaseSubsystem.pm \
   Classes/MSSQL/Component/MemorypoolSubsystem/Buffercache.pm \
   Classes/MSSQL/Component/MemorypoolSubsystem/Lock.pm \

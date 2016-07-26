@@ -239,6 +239,31 @@ sub init {
     } else {
       $self->no_such_mode();
     }
+  } elsif ($self->mode =~ /server::database::availabilitygroup::status/) {
+    printf "hihi\n";
+    if ($self->version_is_minimum("9.x")) {
+      my $columns = ['name', 'state'];
+      my $avgfilter = sub {
+        my $o = shift;
+        $self->filter_name($o->{name});
+      };
+      my $sql = q{
+        SELECT  [ag].[name] AS [AVAILABILITY_GROUP_NAME]
+              , CASE [gs].[synchronization_health]
+                  WHEN 2 THEN 0
+                  ELSE -1
+                END AS [AVAILABILITY_GROUP_HEALTH]
+        FROM    [master].[sys].[availability_groups] AS [ag]
+                INNER  JOIN [master].[sys].[dm_hadr_availability_group_states]
+                AS [gs] ON [ag].[group_id] = [gs].[group_id]
+        ORDER BY [ag].[name] ASC;
+      };
+      $self->get_db_tables([
+          ['avgroups', $sql, 'Monitoring::GLPlugin::DB::TableItem', $avgfilter, $columns],
+      ]);
+    } else {
+      
+    }
   }
 }
 

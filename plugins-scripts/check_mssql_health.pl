@@ -256,6 +256,12 @@ $plugin->add_mode(
     help => 'The number of DBCC File Shrink events (either data or log) in the last <n> minutes (use --lookback)',
 );
 $plugin->add_mode(
+    internal => 'server::availabilitygroup::status',
+    spec => 'availability-group-health',
+    alias => undef,
+    help => 'Checks the health status of availability groups',
+);
+$plugin->add_mode(
     internal => 'server::jobs::failed',
     spec => 'failed-jobs',
     alias => undef,

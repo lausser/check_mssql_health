@@ -281,6 +281,9 @@ sub init {
   } elsif ($self->mode =~ /^server::database/) {
     $self->analyze_and_check_database_subsystem("Classes::MSSQL::Component::DatabaseSubsystem");
     $self->reduce_messages_short();
+  } elsif ($self->mode =~ /^server::availabilitygroup/) {
+    $self->analyze_and_check_avgroup_subsystem("Classes::MSSQL::Component::AvailabilitygroupSubsystem");
+    $self->reduce_messages_short();
   } elsif ($self->mode =~ /^server::jobs/) {
     $self->analyze_and_check_job_subsystem("Classes::MSSQL::Component::JobSubsystem");
     $self->reduce_messages_short();
