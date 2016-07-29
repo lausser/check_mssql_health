@@ -1,3 +1,5 @@
+* 2016-07-29 2.6.4.1
+  availability-group-health only for versions >= 11.x
 * 2016-07-26 2.6.4
   add --mode availability-group-health
 * 2016-06-23 2.6.3.1
