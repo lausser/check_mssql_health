@@ -1,3 +1,5 @@
+* 2016-08-03 2.6.4.2
+  Remove a uninitialized-message in database-free&db-user
 * 2016-07-29 2.6.4.1
   availability-group-health only for versions >= 11.x
 * 2016-07-26 2.6.4
