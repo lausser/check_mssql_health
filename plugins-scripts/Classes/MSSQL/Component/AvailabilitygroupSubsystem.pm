@@ -11,7 +11,7 @@ sub init {
   };
   if ($self->mode =~ /server::availabilitygroup::status/) {
     if ($self->version_is_minimum("11.x")) {
-      my $columns = [qw(group_id name primary_replica primary_recovery_health_desc
+      my $columns = [qw(server_name group_id name primary_replica primary_recovery_health_desc
           secondary_recovery_health_desc synchronization_health_desc)];
       my $avgfilter = sub {
         my $o = shift;
@@ -19,6 +19,7 @@ sub init {
       };
       my $sql = q{
         SELECT
+          @@ServerName,
           [ag].[group_id],
           [ag].[name],
           [gs].[primary_replica],
@@ -37,9 +38,9 @@ sub init {
           [ag].[group_id] = [gs].[group_id]
       };
       my $resql = q{
-        select * from [master].[sys].[dm_hadr_availability_replica_states]
+        select @@ServerName,* from [master].[sys].[dm_hadr_availability_replica_states]
       };
-      my $recolumns = [qw(replica_id group_id is_local role role_desc operational_state
+      my $recolumns = [qw(server_name replica_id group_id is_local role role_desc operational_state
           operational_state_desc connected_state connected_state_desc recovery_health
           recovery_health_desc synchronization_health synchronization_health_desc
           last_connect_error_number last_connect_error_description
@@ -69,7 +70,10 @@ sub check {
   if ($self->mode =~ /server::availabilitygroup::status/) {
     $self->add_info(sprintf 'availability group %s has synch. status %s', $self->{name},
         lc $self->{synchronization_health_desc});
-    if ($self->{synchronization_health_desc} eq 'HEALTHY') {
+    if ($self->{server_name} ne $self->{primary_replica}) {
+      $self->add_ok(sprintf 'this is is a secondary replica if group %s. for a reliable status you have to ask the primary replica',
+          $self->{name});
+    } elsif ($self->{synchronization_health_desc} eq 'HEALTHY') {
       $self->add_ok();
     } elsif ($self->{synchronization_health_desc} eq 'PARTIALLY_HEALTHY') {
       $self->add_warning();
