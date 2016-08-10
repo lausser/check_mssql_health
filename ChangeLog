@@ -1,3 +1,5 @@
+* 2016-08-10 2.6.4.4
+  added Extraopts to the dist
 * 2016-08-05 2.6.4.3
   availability-group-health only for primary replica
 * 2016-08-03 2.6.4.2
