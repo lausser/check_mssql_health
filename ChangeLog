@@ -1,3 +1,5 @@
+* 2016-08-12 2.6.4.5
+  fix a bug in database-free (was introduced in 2.6.4.2)
 * 2016-08-10 2.6.4.4
   added Extraopts to the dist
 * 2016-08-05 2.6.4.3

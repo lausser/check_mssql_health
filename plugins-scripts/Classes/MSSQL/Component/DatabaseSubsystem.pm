@@ -975,8 +975,7 @@ sub finish {
     if ($self->{max_size} == -1) {
       # kann unbegrenzt wachsen, bis das filesystem voll ist.
       $self->{max_size} = $self->{size} +
-          exists $self->{filesystems}->{$self->{drive}} ?
-          $self->{filesystems}->{$self->{drive}} : 0;
+          (exists $self->{filesystems}->{$self->{drive}} ? $self->{filesystems}->{$self->{drive}} : 0);
       $self->{drive_reserve}->{$self->{drive}} = 1;
       $self->{formula} = sprintf "f %15s ulimt %d (%dMB)", $self->{name}, $self->{max_size}, $self->{max_size} / 1048576;
       $self->{growth_desc} = "unlimited size";
