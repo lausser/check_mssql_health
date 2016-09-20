@@ -1,3 +1,5 @@
+* 2016-09-20 2.6.4.6
+  ignore database snapshots in database-free
 * 2016-08-12 2.6.4.5
   fix a bug in database-free (was introduced in 2.6.4.2)
 * 2016-08-10 2.6.4.4

@@ -31,6 +31,8 @@ sub init {
             name, database_id AS id, state, state_desc
         FROM
             master.sys.databases
+        WHERE
+            source_database_id IS NULL
         ORDER BY
             name
       };
