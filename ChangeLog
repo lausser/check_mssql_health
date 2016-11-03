@@ -1,3 +1,5 @@
+* 2016-11-03 2.6.4.7
+  bugfix in database-free with zero-size filestreams. (Thanks Ivo)
 * 2016-09-20 2.6.4.6
   ignore database snapshots in database-free
 * 2016-08-12 2.6.4.5

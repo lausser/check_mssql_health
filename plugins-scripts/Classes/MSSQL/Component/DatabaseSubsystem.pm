@@ -447,6 +447,8 @@ sub finish {
           sys.filegroups AS fg
         ON
           dbf.data_space_id = fg.data_space_id
+        WHERE
+          dbf.type_desc != 'FILESTREAM'
       };
     }
     if ($self->is_online) {
