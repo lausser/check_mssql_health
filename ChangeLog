@@ -1,3 +1,7 @@
+* 2017-04-12 2.6.4.9
+  fix a bug in database-*, is_primary_replica does not exist in sqlsrv 2012
+* 2017-02-08 2.6.4.8
+  ignore alwayson replicas in database-free
 * 2016-11-03 2.6.4.7
   bugfix in database-free with zero-size filestreams. (Thanks Ivo)
 * 2016-09-20 2.6.4.6

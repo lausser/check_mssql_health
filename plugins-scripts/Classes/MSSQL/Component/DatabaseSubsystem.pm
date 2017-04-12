@@ -26,16 +26,49 @@ sub init {
       $self->mode =~ /server::database::(file|filegroup)/) {
     my $columns = ['name', 'id', 'state', 'state_desc'];
     if ($self->version_is_minimum("9.x")) {
-      $sql = q{
-        SELECT
-            name, database_id AS id, state, state_desc
-        FROM
-            master.sys.databases
-        WHERE
-            source_database_id IS NULL
-        ORDER BY
-            name
-      };
+      if ($self->get_variable('ishadrenabled')) {
+        if ($self->version_is_minimum("12.x")) {
+          # is_primary_replica was introduced with 12.0 "Hekaton" (2014)
+          $sql = q{
+            SELECT
+                db.name, db.database_id AS id, db.state, db.state_desc
+            FROM
+                master.sys.databases db
+            LEFT OUTER JOIN
+                master.sys.dm_hadr_database_replica_states AS dbrs
+            ON
+                db.replica_id = dbrs.replica_id AND db.group_database_id = dbrs.group_database_id
+            WHERE
+                -- ignore database snapshots  AND -- ignore alwayson replicas 
+                db.source_database_id IS NULL AND (dbrs.is_primary_replica IS NULL OR dbrs.is_primary_replica = 1)
+          };
+        } else {
+          $sql = q{
+            SELECT
+                db.name, db.database_id AS id, db.state, db.state_desc
+            FROM
+                master.sys.databases db
+            LEFT OUTER JOIN
+                master.sys.dm_hadr_database_replica_states AS dbrs
+            ON
+                db.replica_id = dbrs.replica_id AND db.group_database_id = dbrs.group_database_id
+            WHERE
+                -- ignore database snapshots
+                db.source_database_id IS NULL
+          };
+        }
+      } else {
+        $sql = q{
+          SELECT
+              name, database_id AS id, state, state_desc
+          FROM
+              master.sys.databases
+          WHERE
+              source_database_id IS NULL
+          ORDER BY
+              name
+        };
+      }
     } else {
       $sql = q{
         SELECT
@@ -62,9 +95,32 @@ sub init {
   } elsif ($self->mode =~ /server::database::online/) {
     my $columns = ['name', 'state', 'state_desc', 'collation_name'];
     if ($self->version_is_minimum("9.x")) {
-      $sql = q{
-        SELECT name, state, state_desc, collation_name FROM master.sys.databases
-      };
+      if ($self->get_variable('ishadrenabled')) {
+        $sql = q{
+          SELECT
+              db.name, db.state, db.state_desc, db.collation_name
+          FROM
+              master.sys.databases db
+          LEFT OUTER JOIN
+              master.sys.dm_hadr_database_replica_states AS dbrs
+          ON
+              db.replica_id = dbrs.replica_id AND db.group_database_id = dbrs.group_database_id
+          WHERE
+              -- ignore database snapshots  AND -- ignore alwayson replicas
+              db.source_database_id IS NULL AND (dbrs.is_primary_replica IS NULL OR dbrs.is_primary_replica = 1)
+        };
+      } else {
+        $sql = q{
+          SELECT
+              name, state, state_desc, collation_name
+          FROM
+              master.sys.databases
+          WHERE
+              source_database_id IS NULL
+          ORDER BY
+              name
+        };
+      }
     }
     $self->get_db_tables([
         ['databases', $sql, 'Classes::MSSQL::Component::DatabaseSubsystem::Database', $allfilter, $columns],
@@ -288,6 +344,10 @@ sub check {
         USE MASTER GRANT SELECT ON sys.fn_hadr_backup_is_preferred_replica TO
       }.$self->opts->name2);
     }
+    # for instances with secure configuration
+    $self->execute(q{
+      USE MASTER GRANT SELECT ON sys.filegroups TO
+    }.$self->opts->name2);
     $self->execute(q{
       USE MSDB CREATE USER
     }.$self->opts->name2.q{
