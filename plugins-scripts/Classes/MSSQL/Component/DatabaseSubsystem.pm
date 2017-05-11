@@ -96,19 +96,35 @@ sub init {
     my $columns = ['name', 'state', 'state_desc', 'collation_name'];
     if ($self->version_is_minimum("9.x")) {
       if ($self->get_variable('ishadrenabled')) {
-        $sql = q{
-          SELECT
-              db.name, db.state, db.state_desc, db.collation_name
-          FROM
-              master.sys.databases db
-          LEFT OUTER JOIN
-              master.sys.dm_hadr_database_replica_states AS dbrs
-          ON
-              db.replica_id = dbrs.replica_id AND db.group_database_id = dbrs.group_database_id
-          WHERE
-              -- ignore database snapshots  AND -- ignore alwayson replicas
-              db.source_database_id IS NULL AND (dbrs.is_primary_replica IS NULL OR dbrs.is_primary_replica = 1)
-        };
+        if ($self->version_is_minimum("12.x")) {
+          $sql = q{
+            SELECT
+                db.name, db.state, db.state_desc, db.collation_name
+            FROM
+                master.sys.databases db
+            LEFT OUTER JOIN
+                master.sys.dm_hadr_database_replica_states AS dbrs
+            ON
+                db.replica_id = dbrs.replica_id AND db.group_database_id = dbrs.group_database_id
+            WHERE
+                -- ignore database snapshots  AND -- ignore alwayson replicas
+                db.source_database_id IS NULL AND (dbrs.is_primary_replica IS NULL OR dbrs.is_primary_replica = 1)
+          };
+        } else {
+          $sql = q{
+            SELECT
+                db.name, db.state, db.state_desc, db.collation_name
+            FROM
+                master.sys.databases db
+            LEFT OUTER JOIN
+                master.sys.dm_hadr_database_replica_states AS dbrs
+            ON
+                db.replica_id = dbrs.replica_id AND db.group_database_id = dbrs.group_database_id
+            WHERE
+                -- ignore database snapshots
+                db.source_database_id IS NULL
+          };
+        }
       } else {
         $sql = q{
           SELECT
