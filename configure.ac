@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_REVISION ($Revision: 1.150 $)
 AC_PREREQ(2.58)
-AC_INIT(check_mssql_health,2.6.4.11)
+AC_INIT(check_mssql_health,2.6.4.13)
 AM_INIT_AUTOMAKE([1.9 tar-pax])
 AM_MAINTAINER_MODE([disable])
 AC_CANONICAL_HOST

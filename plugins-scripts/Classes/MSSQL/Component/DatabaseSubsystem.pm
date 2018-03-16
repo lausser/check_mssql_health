@@ -805,6 +805,7 @@ sub check {
         label => 'db_'.$self->{name}.'_alloc_size',
         value => $self->{rows_size} / $factor,
         uom => $self->opts->units,
+        max => $self->{rows_max_size} / $factor,
     );
     if ($self->{logs_size}) {
       $self->add_ok(sprintf "db %s logs allocated %.4f%s",
@@ -814,6 +815,7 @@ sub check {
           label => 'db_'.$self->{name}.'_alloc_logs_size',
           value => $self->{logs_size} / $factor,
           uom => $self->opts->units,
+          max => $self->{logs_max_size} / $factor,
       );
     }
   } elsif ($self->mode =~ /server::database::(.*backupage)$/) {

@@ -16,7 +16,8 @@ sub check_connect {
   }
   if ($self->opts->currentdb) {
     if (index($self->opts->currentdb,"-") != -1) {
-      $dsn .= sprintf ";database=\"%s\"", $self->opts->currentdb;
+      # once the database name had to be put in quotes....
+      $dsn .= sprintf ";database=%s", $self->opts->currentdb;
     } else {
       $dsn .= sprintf ";database=%s", $self->opts->currentdb;
     }

@@ -1,3 +1,7 @@
+* 2018-03-16 2.6.4.13
+  add db max size as threshold in database-size
+* 2017-07-29 2.6.4.12
+  fix currentdb with a - in the database name
 * 2017-05-29 2.6.4.11
   update glplugin
 * 2017-04-18 2.6.4.10
