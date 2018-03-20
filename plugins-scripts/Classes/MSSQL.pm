@@ -263,7 +263,7 @@ sub init {
       }
     }
     if (! $self->check_messages()) {
-      $self->set_thresholds(warning => 90, critical => 95);
+      $self->set_thresholds(warning => '90:', critical => '80:');
       $self->add_message($self->check_thresholds($self->{memory_used_target_ratio}),
           sprintf "Used Memory/Target Ratio %.2f%%", $self->{memory_used_target_ratio});
       $self->add_perfdata(

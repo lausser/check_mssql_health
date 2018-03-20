@@ -107,7 +107,7 @@ $plugin->add_mode(
 );
 $plugin->add_mode(
     internal => 'server::memoryusedtargetratio',
-    spec => 'memory_used_target_ratio',
+    spec => 'memory-used-target-ratio',
     alias => undef,
     help => 'The amount of memory used / memory target',
 );
