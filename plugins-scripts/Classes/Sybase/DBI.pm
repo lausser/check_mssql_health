@@ -39,7 +39,7 @@ sub check_connect {
     if ($self->{handle} = DBI->connect(
         $dsn,
         $self->opts->username,
-        $self->decode_password($self->opts->password),
+        $self->opts->password,
         $dbi_options)) {
       $Monitoring::GLPlugin::DB::session = $self->{handle};
     }

@@ -344,12 +344,14 @@ $plugin->add_arg(
     help => "--username
    the mssql user",
     required => 0,
+    decode => "rfc3986",
 );
 $plugin->add_arg(
     spec => 'password=s',
     help => "--password
    the mssql user's password",
     required => 0,
+    decode => "rfc3986",
 );
 $plugin->add_arg(
     spec => 'port=i',

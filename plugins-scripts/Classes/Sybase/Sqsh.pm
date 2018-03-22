@@ -15,7 +15,7 @@ sub create_cmd_line {
   }
   push (@args, sprintf "-U '%s'", $self->opts->username);
   push (@args, sprintf "-P '%s'",
-      $self->decode_password($self->opts->password));
+      $self->decode_rfc3986($self->opts->password));
   push (@args, sprintf "-i '%s'",
       $Monitoring::GLPlugin::DB::sql_commandfile);
   push (@args, sprintf "-o '%s'",
@@ -216,10 +216,13 @@ sub execute {
   return @{$rows};
 }
 
-sub decode_password {
+sub decode_rfc3986 {
   my $self = shift;
   my $password = shift;
-  $password = $self->SUPER::decode_password($password);
+  eval {
+    no warnings 'all';
+    $password = $Monitoring::GLPlugin::plugin->{opts}->decode_rfc3986($password);
+  };
   # we call '...%s/%s@...' inside backticks where the second %s is the password
   # abc'xcv -> ''abc'\''xcv''
   # abc'`xcv -> ''abc'\''\`xcv''
@@ -236,7 +239,7 @@ sub add_dbi_funcs {
     no strict 'refs';
     *{'Monitoring::GLPlugin::DB::create_cmd_line'} = \&{"Classes::Sybase::Sqsh::create_cmd_line"};
     *{'Monitoring::GLPlugin::DB::write_extcmd_file'} = \&{"Classes::Sybase::Sqsh::write_extcmd_file"};
-    *{'Monitoring::GLPlugin::DB::decode_password'} = \&{"Classes::Sybase::Sqsh::decode_password"};
+    *{'Monitoring::GLPlugin::DB::decode_rfc3986'} = \&{"Classes::Sybase::Sqsh::decode_rfc3986"};
     *{'Monitoring::GLPlugin::DB::fetchall_array'} = \&{"Classes::Sybase::Sqsh::fetchall_array"};
     *{'Monitoring::GLPlugin::DB::fetchrow_array'} = \&{"Classes::Sybase::Sqsh::fetchrow_array"};
     *{'Monitoring::GLPlugin::DB::execute'} = \&{"Classes::Sybase::Sqsh::execute"};
