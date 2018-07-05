@@ -1,8 +1,8 @@
 check_mssql_health Nagios Plugin README
 ---------------------
-
+<div>
 <a href="https://www.buymeacoffee.com/bsNED0Wct" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/black_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;" ></a>
-
+</div>
 This plugin is used to monitor a variety of MS SQL Server database metrics. 
 
 * For instructions on installing this plugin for use with Nagios,
