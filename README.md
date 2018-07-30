@@ -1,3 +1,6 @@
+**Komm nach Braunschweig und triff die Leute, die sich mit genau demselben Kram beschäftigen wie du!**
+<a href="https://monitors-2018.tu-braunschweig.de/dokuwiki/doku.php"><img src="https://labs.consol.de/assets/images/braunschweig-banner.gif"></a>
+
 check_mssql_health Nagios Plugin README
 ---------------------
 
