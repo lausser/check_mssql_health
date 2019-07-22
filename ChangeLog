@@ -1,3 +1,6 @@
+* 2019-07-17 2.6.4.15
+  apply filter --nooffline and --notemp to the backup-modes
+  encrypt password
 * 2018-03-22 2.6.4.14
   fix a bug in password decoding
 * 2018-03-16 2.6.4.13

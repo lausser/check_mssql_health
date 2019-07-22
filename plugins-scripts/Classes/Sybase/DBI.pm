@@ -14,6 +14,7 @@ sub check_connect {
   } else {
     $dsn .= sprintf ";server=%s", $self->opts->server;
   }
+  $dsn .= ";encryptPassword=1";
   if ($self->opts->currentdb) {
     if (index($self->opts->currentdb,"-") != -1) {
       # once the database name had to be put in quotes....

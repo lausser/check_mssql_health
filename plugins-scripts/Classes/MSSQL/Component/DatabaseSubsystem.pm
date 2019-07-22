@@ -143,54 +143,76 @@ sub init {
     ]);
     @{$self->{databases}} =  reverse sort {$a->{name} cmp $b->{name}} @{$self->{databases}};
   } elsif ($self->mode =~ /server::database::(.*backupage)/) {
-    my $columns = ['name', 'recovery_model', 'backup_age', 'backup_duration'];
+    my $columns = ['name', 'recovery_model', 'backup_age', 'backup_duration', 'state', 'state_desc'];
     if ($self->mode =~ /server::database::backupage/) {
       if ($self->version_is_minimum("9.x")) {
         $sql = q{
-          SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
-          FROM sys.databases D
+          SELECT
+              d.name AS database_name, d.recovery_model, bs1.last_backup, bs1.last_duration, d.state, d.state_desc
+          FROM
+              sys.databases d
           LEFT JOIN (
-            SELECT BS.[database_name],
-            DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup,
-            DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
-            FROM msdb.dbo.backupset BS WITH (NOLOCK)
-            WHERE BS.type IN ('D', 'I')
-            GROUP BY BS.[database_name]
-          ) BS1 ON D.name = BS1.[database_name] WHERE D.source_database_id IS NULL
-          ORDER BY D.[name];
+            SELECT
+                bs.database_name,
+                DATEDIFF(HH, MAX(bs.backup_finish_date), GETDATE()) AS last_backup,
+                DATEDIFF(MI, MAX(bs.backup_start_date), MAX(bs.backup_finish_date)) AS last_duration
+            FROM
+                msdb.dbo.backupset bs WITH (NOLOCK)
+            WHERE
+                bs.type IN ('D', 'I')
+            GROUP BY
+                bs.database_name
+          ) bs1 ON
+              d.name = bs1.database_name WHERE d.source_database_id IS NULL
+          ORDER BY
+              d.name
         };
       } else {
         $sql = q{
           SELECT
-            a.name,
-            CASE databasepropertyex(a.name, 'Recovery')
-              WHEN 'FULL' THEN 1
-              WHEN 'BULK_LOGGED' THEN 2
-              WHEN 'SIMPLE' THEN 3
-              ELSE 0
-            END AS recovery_model,
-            DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
-            DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
-          FROM master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
-          ON b.database_name = a.name
-          GROUP BY a.name
-          ORDER BY a.name
+              a.name,
+              CASE databasepropertyex(a.name, 'Recovery')
+                WHEN 'FULL' THEN 1
+                WHEN 'BULK_LOGGED' THEN 2
+                WHEN 'SIMPLE' THEN 3
+                ELSE 0
+              END AS recovery_model,
+              DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
+              DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
+              a.state,
+              NULL AS state_desc
+          FROM
+              master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
+          ON
+              b.database_name = a.name
+          GROUP BY
+              a.name
+          ORDER BY
+              a.name
         };
       }
     } elsif ($self->mode =~ /server::database::logbackupage/) {
       if ($self->version_is_minimum("9.x")) {
         $sql = q{
-          SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
-          FROM sys.databases D
+          SELECT
+              d.name AS database_name, d.recovery_model, bs1.last_backup, bs1.last_duration, d.state, d.state_desc
+          FROM
+              sys.databases d
           LEFT JOIN (
-            SELECT BS.[database_name],
-            DATEDIFF(HH,MAX(BS.[backup_finish_date]),GETDATE()) AS last_backup,
-            DATEDIFF(MI,MAX(BS.[backup_start_date]),MAX(BS.[backup_finish_date])) AS last_duration
-            FROM msdb.dbo.backupset BS WITH (NOLOCK)
-            WHERE BS.type = 'L'
-            GROUP BY BS.[database_name]
-          ) BS1 ON D.name = BS1.[database_name] WHERE D.source_database_id IS NULL
-          ORDER BY D.[name];
+            SELECT
+                bs.database_name,
+                DATEDIFF(HH, MAX(bs.backup_finish_date), GETDATE()) AS last_backup,
+                DATEDIFF(MI, MAX(bs.backup_start_date), MAX(bs.backup_finish_date)) AS last_duration
+            FROM
+                msdb.dbo.backupset bs WITH (NOLOCK)
+            WHERE
+                bs.type = 'L'
+            GROUP BY
+                bs.database_name
+          ) bs1 ON
+              d.name = bs1.database_name WHERE d.source_database_id IS NULL
+          ORDER BY
+              d.name
         };
       } else {
         $self->no_such_mode();
@@ -426,9 +448,9 @@ sub is_backup_node {
 
 sub is_online {
   my $self = shift;
-  return 0 if $self->{messages}->{critical} && grep /is offline/, @{$self->{messages}->{critical}};
+  return 0 if $self->{messages}->{critical} && grep /is offline/i, @{$self->{messages}->{critical}};
   if ($self->version_is_minimum("9.x")) {
-    return 1 if $self->{state_desc} && $self->{state_desc} eq "online";
+    return 1 if $self->{state_desc} && lc $self->{state_desc} eq "online";
     # ehem. offline = $self->{state} == 6 ? 1 : 0;
   } else {
     # bit 512 is offline
