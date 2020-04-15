@@ -1,3 +1,5 @@
+* 2020-04-04 2.6.4.16
+  fix a bug in is_online()
 * 2019-07-17 2.6.4.15
   apply filter --nooffline and --notemp to the backup-modes
   encrypt password

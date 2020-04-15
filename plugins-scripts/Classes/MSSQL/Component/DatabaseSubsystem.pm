@@ -433,6 +433,13 @@ package Classes::MSSQL::Component::DatabaseSubsystem::DatabaseStub;
 our @ISA = qw(Monitoring::GLPlugin::DB::TableItem);
 use strict;
 
+sub finish {
+  my $self = shift;
+  $self->override_opt("units", "%") if ! $self->opts->units;
+  $self->{full_name} = $self->{name};
+  $self->{state_desc} = lc $self->{state_desc} if $self->{state_desc};
+}
+
 sub is_backup_node {
   my $self = shift;
   if ($self->version_is_minimum("11.x")) {
@@ -497,9 +504,7 @@ use strict;
 
 sub finish {
   my $self = shift;
-  $self->override_opt("units", "%") if ! $self->opts->units;
-  $self->{full_name} = $self->{name};
-  $self->{state_desc} = lc $self->{state_desc} if $self->{state_desc};
+  $self->SUPER::finish();
   if ($self->mode =~ /server::database::(free.*|datafree.*|logfree.*|size)$/ ||
       $self->mode =~ /server::database::(file|filegroup)/) {
     # private copy for this database
