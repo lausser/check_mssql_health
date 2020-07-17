@@ -1,3 +1,5 @@
+* 2020-07-17 2.6.4.17
+  Merge pull request #42 from ulikl/fix_long_running_jobs
 * 2020-04-04 2.6.4.16
   fix a bug in is_online()
 * 2019-07-17 2.6.4.15
