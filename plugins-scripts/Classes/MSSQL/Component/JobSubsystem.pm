@@ -23,9 +23,9 @@ sub init {
                         DATEDIFF(Minute, CAST(CAST([sJOBH].[run_date] AS CHAR(8)) + ' ' +
                         STUFF(STUFF(RIGHT('000000' + CAST([sJOBH].[run_time] AS VARCHAR(6)),  6), 3, 0, ':'), 6, 0, ':') AS DATETIME), CURRENT_TIMESTAMP)
                 END AS [MinutesSinceStart],
-                CAST(SUBSTRING(RIGHT('00000000' + CAST([sJOBH].[run_duration] AS VARCHAR(8)), 8), 1, 4) AS INT) * 3600 +
-                CAST(SUBSTRING(RIGHT('00000000' + CAST([sJOBH].[run_duration] AS VARCHAR(8)), 8), 5, 2) AS INT) * 60 +
-                CAST(SUBSTRING(RIGHT('00000000' + CAST([sJOBH].[run_duration] AS VARCHAR(8)), 8), 7, 2) AS INT) AS LastRunDurationSeconds,
+                round([run_duration] / 10000, 0) * 3600 +
+                CAST(SUBSTRING(RIGHT('00000000' + CAST([run_duration] AS VARCHAR(30)), 8), 5, 2) AS INT) * 60 +
+                CAST(SUBSTRING(RIGHT('00000000' + CAST([run_duration] AS VARCHAR(30)), 8), 7, 2) AS INT) AS LastRunDurationSeconds,
                 CASE
                     WHEN
                         [sJOBH].[run_date] IS NULL OR [sJOBH].[run_time] IS NULL
@@ -44,7 +44,8 @@ sub init {
                     WHEN 4 THEN 'Running' -- In Progress
                     ELSE 'DidNeverRun'
                 END AS [LastRunStatus],
-                STUFF(STUFF(RIGHT('00000000' + CAST([sJOBH].[run_duration] AS VARCHAR(8)), 8), 5, 0, ':'), 8, 0, ':') AS [LastRunDuration (HH:MM:SS)],
+                cast( round([run_duration] / 10000, 0) as VARCHAR(30)) + ':' +
+				        STUFF(RIGHT('00000000' + CAST([run_duration] AS VARCHAR(30)), 4), 3, 0, ':') AS [LastRunDuration (HH:MM:SS)],
                 [sJOBH].[message] AS [LastRunStatusMessage],
                 CASE [sJOBSCH].[NextRunDate]
                     WHEN
@@ -164,4 +165,3 @@ sub check {
     }
   }
 }
-
