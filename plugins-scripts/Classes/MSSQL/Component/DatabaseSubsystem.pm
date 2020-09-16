@@ -163,7 +163,7 @@ sub init {
             GROUP BY
                 bs.database_name
           ) bs1 ON
-              d.name = bs1.database_name WHERE d.source_database_id IS NULL
+              d.name = bs1.database_name WHERE d.source_database_id IS NULL AND d.name != 'tempdb'
           ORDER BY
               d.name
         };
@@ -210,7 +210,7 @@ sub init {
             GROUP BY
                 bs.database_name
           ) bs1 ON
-              d.name = bs1.database_name WHERE d.source_database_id IS NULL
+              d.name = bs1.database_name WHERE d.source_database_id IS NULL AND d.name != 'tempdb'
           ORDER BY
               d.name
         };
