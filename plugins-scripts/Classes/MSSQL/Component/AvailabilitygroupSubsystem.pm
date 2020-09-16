@@ -71,7 +71,7 @@ sub check {
     $self->add_info(sprintf 'availability group %s has synch. status %s', $self->{name},
         lc $self->{synchronization_health_desc});
     if ($self->{server_name} ne $self->{primary_replica}) {
-      $self->add_ok(sprintf 'this is is a secondary replica if group %s. for a reliable status you have to ask the primary replica',
+      $self->add_ok(sprintf 'this is is a secondary replica of group %s. for a reliable status you have to ask the primary replica',
           $self->{name});
     } elsif ($self->{synchronization_health_desc} eq 'HEALTHY') {
       $self->add_ok();
