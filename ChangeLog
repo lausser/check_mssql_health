@@ -1,3 +1,11 @@
+* 2020-11-11 2.7.1.2
+  write a message if no availability groups were found
+* 2020-11-10 2.7.1.1
+  bugfix in availability-group-health
+* 2020-11-02 2.7.1
+  improve availability-group-health, check synchronization_state+health
+* 2020-10-26 2.7
+  Update GLPlugin, commandline parameters can be set as environment variables
 * 2020-07-17 2.6.4.17
   Merge pull request #42 from ulikl/fix_long_running_jobs
 * 2020-04-04 2.6.4.16
