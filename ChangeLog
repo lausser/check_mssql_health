@@ -1,3 +1,5 @@
+* 2020-11-25 2.7.2
+  database-online is more strict now, restoring is a bad state
 * 2020-11-11 2.7.1.2
   write a message if no availability groups were found
 * 2020-11-10 2.7.1.1

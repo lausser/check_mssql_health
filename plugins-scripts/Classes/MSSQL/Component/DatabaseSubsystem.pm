@@ -20,7 +20,7 @@ sub init {
   my $allfilter = sub {
     my $o = shift;
     $self->filter_name($o->{name}) &&
-        ! (($self->opts->notemp && $o->is_temp) || ($self->opts->nooffline && ! $o->is_online));
+        ! (($self->opts->notemp && $o->is_temp) || ($self->opts->nooffline && $o->is_offline));
   };
   if ($self->mode =~ /server::database::(createuser|deleteuser|list|free.*|datafree.*|logfree.*|transactions|size)$/ ||
       $self->mode =~ /server::database::(file|filegroup)/) {
@@ -453,6 +453,20 @@ sub is_backup_node {
   }
 }
 
+sub is_offline {
+  my $self = shift;
+  return 0 if $self->{messages}->{critical} && grep /is offline/i, @{$self->{messages}->{critical}};
+  if ($self->version_is_minimum("9.x")) {
+    # https://docs.microsoft.com/de-de/sql/relational-databases/system-catalog-views/sys-databases-transact-sql?view=sql-server-ver15
+    return 1 if $self->{state} && $self->{state} == 6;
+    return 1 if $self->{state} && $self->{state} == 10;
+  } else {
+    # bit 512 is offline
+    return $self->{state} & 0x0200 ? 1 : 0;
+  }
+  return 0;
+}
+
 sub is_online {
   my $self = shift;
   return 0 if $self->{messages}->{critical} && grep /is offline/i, @{$self->{messages}->{critical}};
@@ -811,6 +825,8 @@ sub check {
             $self->{name}, $self->{state_desc});
       }
     } elsif ($self->{state_desc} =~ /^recover/i) {
+      $self->add_warning(sprintf "%s is %s", $self->{name}, $self->{state_desc});
+    } elsif ($self->{state_desc} =~ /^restor/i) {
       $self->add_warning(sprintf "%s is %s", $self->{name}, $self->{state_desc});
     } else {
       $self->add_critical(sprintf "%s is %s", $self->{name}, $self->{state_desc});
