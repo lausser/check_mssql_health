@@ -379,6 +379,9 @@ sub check {
         USE MASTER GRANT SELECT ON sys.dm_hadr_database_replica_cluster_states TO
       }.$self->opts->name2);
       $self->execute(q{
+        USE MASTER GRANT SELECT ON sys.dm_hadr_database_replica_states TO
+      }.$self->opts->name2);
+      $self->execute(q{
         USE MASTER GRANT SELECT ON sys.fn_hadr_backup_is_preferred_replica TO
       }.$self->opts->name2);
     }
