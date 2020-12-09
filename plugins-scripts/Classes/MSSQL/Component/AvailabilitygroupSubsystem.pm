@@ -56,7 +56,6 @@ sub init {
           [rs].[replica_id],
           [rs].[group_database_id]
         FROM [master].[sys].[availability_groups] AS [ag]
-        INNER JOIN [master].[sys].[dm_hadr_availability_group_states] AS [gs] ON [ag].[group_id] = [gs].[group_id]
         INNER JOIN [master].[sys].[dm_hadr_database_replica_states] AS [rs] ON [ag].[group_id] = [rs].[group_id]
         INNER JOIN [master].[sys].[databases] AS [db] ON [rs].[database_id] = [db].[database_id]
       };
