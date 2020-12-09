@@ -82,14 +82,14 @@ sub check {
   if ($self->mode =~ /server::availabilitygroup::status/) {
     if ($self->version_is_minimum("11.x")) {
       if (! scalar(@{$self->{avgroups}})) {
-        $self->add_ok("no availability groups found");
+        $self->add_unknown("no availability groups found");
       } else {
         foreach (@{$self->{avgroups}}) {
           $_->check();
         }
       }
     } else {
-      $self->add_ok(sprintf 'your version %s is too old, availability group monitoring is not possible', $self->get_variable('version'));
+      $self->add_unknown(sprintf 'your version %s is too old, availability group monitoring is not possible', $self->get_variable('version'));
     }
   }
 }
