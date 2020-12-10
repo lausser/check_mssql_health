@@ -1,3 +1,5 @@
+* 2020-12-10 2.7.2.1
+  Merge pull request #45 from GalipoliX/patch-1, improve a query in availability-mode
 * 2020-11-25 2.7.2
   database-online is more strict now, restoring is a bad state
 * 2020-11-11 2.7.1.2
