@@ -959,7 +959,7 @@ sub calc {
         # sonst schnippelt der von den originalen den : weg
         $_ =~ s/://g; (($_ * $max_size / 100) / $factor).":";
     } map { my $tmp = $_; $tmp; } ($warning_pct, $critical_pct);
-    $self->set_thresholds(metric => $metric_units, warning => $warning_units, critical => $critical_units);
+    $self->force_thresholds(metric => $metric_units, warning => $warning_units, critical => $critical_units);
     $self->add_message($self->check_thresholds(metric => $metric_pct, value => $free_percent),
         sprintf("%s %s has %.2f%s free %sspace left", $item, $name, $free_percent, $self->opts->units, ($type eq "logs" ? "log " : "")));
   } else {
@@ -968,7 +968,7 @@ sub calc {
     ($warning_pct, $critical_pct) = map {
         $_ =~ s/://g; (100 * ($_ * $factor) / $max_size).":";
     } map { my $tmp = $_; $tmp; } ($warning_units, $critical_units);
-    $self->set_thresholds(metric => $metric_pct, warning => $warning_pct, critical => $critical_pct);
+    $self->force_thresholds(metric => $metric_pct, warning => $warning_pct, critical => $critical_pct);
     $self->add_message($self->check_thresholds(metric => $metric_units, value => $free_units),
         sprintf("%s %s has %.2f%s free %sspace left", $item, $name, $free_units, $self->opts->units, ($type eq "logs" ? "log " : "")));
   }
