@@ -143,12 +143,13 @@ sub init {
     ]);
     @{$self->{databases}} =  reverse sort {$a->{name} cmp $b->{name}} @{$self->{databases}};
   } elsif ($self->mode =~ /server::database::(.*backupage)/) {
-    my $columns = ['name', 'recovery_model', 'backup_age', 'backup_duration', 'state', 'state_desc'];
+    my $columns = ['name', 'recovery_model', 'backup_age', 'backup_duration', 'state', 'state_desc', 'db_age'];
     if ($self->mode =~ /server::database::backupage/) {
       if ($self->version_is_minimum("9.x")) {
         $sql = q{
           SELECT
-              d.name AS database_name, d.recovery_model, bs1.last_backup, bs1.last_duration, d.state, d.state_desc
+              d.name AS database_name, d.recovery_model, bs1.last_backup, bs1.last_duration, d.state, d.state_desc,
+              DATEDIFF(HH, d.create_date, GETDATE()) AS db_age
           FROM
               sys.databases d
           LEFT JOIN (
@@ -180,7 +181,8 @@ sub init {
               DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
               DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
               a.state,
-              NULL AS state_desc
+              NULL AS state_desc,
+              NULL AS create_date
           FROM
               master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
           ON
@@ -195,7 +197,8 @@ sub init {
       if ($self->version_is_minimum("9.x")) {
         $sql = q{
           SELECT
-              d.name AS database_name, d.recovery_model, bs1.last_backup, bs1.last_duration, d.state, d.state_desc
+              d.name AS database_name, d.recovery_model, bs1.last_backup, bs1.last_duration, d.state, d.state_desc,
+              DATEDIFF(HH, d.create_date, GETDATE()) AS db_age
           FROM
               sys.databases d
           LEFT JOIN (
@@ -877,9 +880,30 @@ sub check {
       $self->add_ok(sprintf "%s has no logs", $self->{name});
     } else {
       $self->set_thresholds(metric => $self->{name}.'_bck_age', warning => 48, critical => 72);
+      # database_name, d.recovery_model, last_backup, last_duration, state, state_desc
+      # vor 3 Stunden gesichert:
+      # [ 'hloda_nobackup', 1, 3, 0, 0, 'ONLINE', 4 ],
+      # nagelneu
+      # [ 'hlodaBACKUP', 1, undef, undef, 0, 'ONLINE', 0 ],
       if (! defined $self->{backup_age}) {
-        $self->add_message(defined $self->opts->mitigation() ? $self->opts->mitigation() : 2,
-            sprintf "%s%s was never backed up", $log, $self->{name});
+        # kein Backup bislang
+        if (defined $self->opts->mitigation()) {
+          # moeglicherweise macht das nichts
+          if ($self->opts->mitigation() =~ /(\w+)=(\d+)/ and
+            defined $self->{db_age} and $2 >= $self->{db_age}) {
+          # der grund fuer das fehlende backup kann sein, dass die db nagelneu ist.
+            $self->add_ok(sprintf "db %s was created just %d hours ago", $self->{name}, $self->{db_age});
+          } elsif ($self->opts->mitigation() =~ /(\w+)=(\d+)/ and
+            defined $self->{db_age} and $2 < $self->{db_age}) {
+print "kaka\n";
+            # die erstellung der db ist schon laenger als der mitigation-zeitraum her
+            $self->add_critical(sprintf "%s%s was never backed up", $log, $self->{name});
+          } else {
+            $self->add_critical_mitigation(sprintf "%s%s was never backed up", $log, $self->{name});
+          }
+        } else {
+          $self->add_critical(sprintf "%s%s was never backed up", $log, $self->{name});
+        }
         $self->{backup_age} = 0;
         $self->{backup_duration} = 0;
       } else {

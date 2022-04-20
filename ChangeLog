@@ -1,3 +1,5 @@
+* 2022-04-20 2.7.3
+  leave some time for the first backup of new databases (--mitigation ok=24)
 * 2021-08-05 2.7.2.2
   bugfix in database-free perfdata
 * 2020-12-10 2.7.2.1
