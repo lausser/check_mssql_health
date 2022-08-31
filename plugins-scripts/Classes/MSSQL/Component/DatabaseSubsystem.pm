@@ -24,20 +24,24 @@ sub init {
   };
   if ($self->mode =~ /server::database::(createuser|deleteuser|list|free.*|datafree.*|logfree.*|transactions|size)$/ ||
       $self->mode =~ /server::database::(file|filegroup)/) {
-    my $columns = ['name', 'id', 'state', 'state_desc'];
+    my $columns = ['name', 'id', 'state', 'state_desc', 'mirroring_role_desc'];
     if ($self->version_is_minimum("9.x")) {
       if ($self->get_variable('ishadrenabled')) {
         if ($self->version_is_minimum("12.x")) {
           # is_primary_replica was introduced with 12.0 "Hekaton" (2014)
           $sql = q{
             SELECT
-                db.name, db.database_id AS id, db.state, db.state_desc
+                db.name, db.database_id AS id, db.state, db.state_desc, mr.mirroring_role_desc
             FROM
                 master.sys.databases db
             LEFT OUTER JOIN
                 master.sys.dm_hadr_database_replica_states AS dbrs
             ON
                 db.replica_id = dbrs.replica_id AND db.group_database_id = dbrs.group_database_id
+            LEFT OUTER JOIN
+                sys.database_mirroring AS mr
+            ON
+                db.database_id = mr.database_id
             WHERE
                 -- ignore database snapshots  AND -- ignore alwayson replicas 
                 db.source_database_id IS NULL AND (dbrs.is_primary_replica IS NULL OR dbrs.is_primary_replica = 1)
@@ -45,13 +49,17 @@ sub init {
         } else {
           $sql = q{
             SELECT
-                db.name, db.database_id AS id, db.state, db.state_desc
+                db.name, db.database_id AS id, db.state, db.state_desc, mr.mirroring_role_desc
             FROM
                 master.sys.databases db
             LEFT OUTER JOIN
                 master.sys.dm_hadr_database_replica_states AS dbrs
             ON
                 db.replica_id = dbrs.replica_id AND db.group_database_id = dbrs.group_database_id
+            LEFT OUTER JOIN
+                sys.database_mirroring AS mr
+            ON
+                db.database_id = mr.database_id
             WHERE
                 -- ignore database snapshots
                 db.source_database_id IS NULL
@@ -60,19 +68,23 @@ sub init {
       } else {
         $sql = q{
           SELECT
-              name, database_id AS id, state, state_desc
+              db.name, db.database_id AS id, db.state, db.state_desc, mr.mirroring_role_desc
           FROM
-              master.sys.databases
+              master.sys.databases db
+          LEFT OUTER JOIN
+              sys.database_mirroring AS mr
+          ON
+              db.database_id = mr.database_id
           WHERE
-              source_database_id IS NULL
+              db.source_database_id IS NULL
           ORDER BY
-              name
+              db.name
         };
       }
     } else {
       $sql = q{
         SELECT
-            name, dbid AS id, status, NULL
+            name, dbid AS id, status, NULL, NULL
         FROM
             master.dbo.sysdatabases
         ORDER BY
@@ -93,19 +105,24 @@ sub init {
       $_->finish();
     }
   } elsif ($self->mode =~ /server::database::online/) {
-    my $columns = ['name', 'state', 'state_desc', 'collation_name'];
+    my $columns = ['name', 'state', 'state_desc', 'collation_name', 'mirroring_role_desc'];
     if ($self->version_is_minimum("9.x")) {
       if ($self->get_variable('ishadrenabled')) {
         if ($self->version_is_minimum("12.x")) {
           $sql = q{
             SELECT
-                db.name, db.state, db.state_desc, db.collation_name
+                db.name, db.state, db.state_desc, db.collation_name,
+                mr.mirroring_role_desc
             FROM
                 master.sys.databases db
             LEFT OUTER JOIN
                 master.sys.dm_hadr_database_replica_states AS dbrs
             ON
                 db.replica_id = dbrs.replica_id AND db.group_database_id = dbrs.group_database_id
+            LEFT JOIN
+                sys.database_mirroring mr
+            ON
+                db.database_id = mr.database_id
             WHERE
                 -- ignore database snapshots  AND -- ignore alwayson replicas
                 db.source_database_id IS NULL AND (dbrs.is_primary_replica IS NULL OR dbrs.is_primary_replica = 1)
@@ -113,13 +130,18 @@ sub init {
         } else {
           $sql = q{
             SELECT
-                db.name, db.state, db.state_desc, db.collation_name
+                db.name, db.state, db.state_desc, db.collation_name,
+                mr.mirroring_role_desc
             FROM
                 master.sys.databases db
             LEFT OUTER JOIN
                 master.sys.dm_hadr_database_replica_states AS dbrs
             ON
                 db.replica_id = dbrs.replica_id AND db.group_database_id = dbrs.group_database_id
+            LEFT JOIN
+                sys.database_mirroring mr
+            ON
+                db.database_id = mr.database_id
             WHERE
                 -- ignore database snapshots
                 db.source_database_id IS NULL
@@ -128,13 +150,18 @@ sub init {
       } else {
         $sql = q{
           SELECT
-              name, state, state_desc, collation_name
+              db.name, db.state, db.state_desc, db.collation_name,
+              mr.mirroring_role_desc
           FROM
-              master.sys.databases
+              master.sys.databases db
+          LEFT JOIN
+              sys.database_mirroring mr
+          ON
+              db.database_id = mr.database_id
           WHERE
-              source_database_id IS NULL
+              db.source_database_id IS NULL
           ORDER BY
-              name
+              db.name
         };
       }
     }
@@ -143,13 +170,14 @@ sub init {
     ]);
     @{$self->{databases}} =  reverse sort {$a->{name} cmp $b->{name}} @{$self->{databases}};
   } elsif ($self->mode =~ /server::database::(.*backupage)/) {
-    my $columns = ['name', 'recovery_model', 'backup_age', 'backup_duration', 'state', 'state_desc', 'db_age'];
+    my $columns = ['name', 'recovery_model', 'backup_age', 'backup_duration', 'state', 'state_desc', 'db_age', 'mirroring_role_desc'];
     if ($self->mode =~ /server::database::backupage/) {
       if ($self->version_is_minimum("9.x")) {
         $sql = q{
           SELECT
               d.name AS database_name, d.recovery_model, bs1.last_backup, bs1.last_duration, d.state, d.state_desc,
-              DATEDIFF(HH, d.create_date, GETDATE()) AS db_age
+              DATEDIFF(HH, d.create_date, GETDATE()) AS db_age,
+              mr.mirroring_role_desc
           FROM
               sys.databases d
           LEFT JOIN (
@@ -164,7 +192,16 @@ sub init {
             GROUP BY
                 bs.database_name
           ) bs1 ON
-              d.name = bs1.database_name WHERE d.source_database_id IS NULL
+              d.name = bs1.database_name
+          LEFT JOIN
+              sys.database_mirroring mr
+          ON
+              d.database_id = mr.database_id
+          WHERE
+              -- source_database_id hat nur dann einen Wert, wenn beim
+              -- Anlegen einer Datenbank diese aus einem Snapshot einer
+              -- anderen Datenbank erzeugt wird.
+              d.source_database_id IS NULL
           ORDER BY
               d.name
         };
@@ -182,7 +219,8 @@ sub init {
               DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
               a.state,
               NULL AS state_desc,
-              NULL AS create_date
+              NULL AS create_date,
+              "UNIMPLEMENTED" AS mirroring_role_desc
           FROM
               master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
           ON
@@ -198,7 +236,8 @@ sub init {
         $sql = q{
           SELECT
               d.name AS database_name, d.recovery_model, bs1.last_backup, bs1.last_duration, d.state, d.state_desc,
-              DATEDIFF(HH, d.create_date, GETDATE()) AS db_age
+              DATEDIFF(HH, d.create_date, GETDATE()) AS db_age,
+              mr.mirroring_role_desc
           FROM
               sys.databases d
           LEFT JOIN (
@@ -213,7 +252,16 @@ sub init {
             GROUP BY
                 bs.database_name
           ) bs1 ON
-              d.name = bs1.database_name WHERE d.source_database_id IS NULL
+              d.name = bs1.database_name
+          LEFT JOIN
+              sys.database_mirroring mr
+          ON
+              d.database_id = mr.database_id
+          WHERE
+              -- source_database_id hat nur dann einen Wert, wenn beim
+              -- Anlegen einer Datenbank diese aus einem Snapshot einer
+              -- anderen Datenbank erzeugt wird.
+              d.source_database_id IS NULL
           ORDER BY
               d.name
         };
@@ -444,6 +492,7 @@ sub finish {
   $self->override_opt("units", "%") if ! $self->opts->units;
   $self->{full_name} = $self->{name};
   $self->{state_desc} = lc $self->{state_desc} if $self->{state_desc};
+  $self->{mirroring_role_desc} = lc $self->{mirroring_role_desc} if $self->{mirroring_role_desc};
 }
 
 sub is_backup_node {
@@ -456,6 +505,33 @@ sub is_backup_node {
     }
   } else {
     return 1;
+  }
+}
+
+sub is_restoring_mirror {
+  my $self = shift;
+  if (exists $self->{mirroring_role_desc} &&
+      lc $self->{mirroring_role_desc} eq "mirror") {
+    # and state_desc == RESTORING
+    # das Gegenstueck hat mirroring_role_desc == PRINCIPAL und
+    # state_desc == ONLINE (wenn alles normal ist, ansonsten auch OFFLINE etc)
+    # Leider braucht man sa-Privilegien, um mirroring_role_desc auslesen zu
+    # koennen, sonst ist die Spalte NULL
+    # 1> SELECT name, db.database_id, state_desc, mirroring_role_desc FROM master.sys.databases db LEFT JOIN sys.database_mirroring mr ON db.database_id = mr.database_id
+    # 2> go
+    # name	database_id	state_desc	mirroring_role_desc
+    # master	1	ONLINE	NULL
+    # tempdb	2	ONLINE	NULL
+    # model	3	ONLINE	NULL
+    # msdb	4	ONLINE	NULL
+    # SIT_AdminDB	5	ONLINE	NULL
+    # SecretServer	6	RESTORING	NULL
+    # (6 rows affected)
+    # Korrekt waere:
+    # SecretServer	6	RESTORING	MIRROR
+    return 1;
+  } else {
+    return 0;
   }
 }
 
@@ -764,7 +840,9 @@ sub check {
     } elsif ($self->mode =~ /server::database::logfree/) {
       @filetypes = qw(logs);
     }
-    if (! $self->is_online) {
+    if (! $self->is_online and $self->is_restoring_mirror) {
+      $self->add_ok(sprintf "database %s is a restoring mirror", $self->{name});
+    } elsif (! $self->is_online) {
       # offlineok hat vorrang
       $self->override_opt("mitigation", $self->opts->offlineok ? 0 : $self->opts->mitigation ? $self->opts->mitigation : 1);
       $self->add_message($self->opts->mitigation,
@@ -830,6 +908,8 @@ sub check {
         $self->add_warning(sprintf "%s is %s but not accepting connections",
             $self->{name}, $self->{state_desc});
       }
+    } elsif ($self->is_restoring_mirror) {
+      $self->add_ok(sprintf "database %s is a restoring mirror", $self->{name});
     } elsif ($self->{state_desc} =~ /^recover/i) {
       $self->add_warning(sprintf "%s is %s", $self->{name}, $self->{state_desc});
     } elsif ($self->{state_desc} =~ /^restor/i) {
@@ -872,6 +952,10 @@ sub check {
       $self->add_ok(sprintf "this is not the preferred replica for backups of %s", $self->{name});
       return;
     }
+    if (! $self->is_online and $self->is_restoring_mirror) {
+      $self->add_ok(sprintf "database %s is a restoring mirror", $self->{name});
+      return;
+    }
     my $log = "";
     if ($self->mode =~ /server::database::logbackupage/) {
       $log = "log of ";
@@ -895,7 +979,6 @@ sub check {
             $self->add_ok(sprintf "db %s was created just %d hours ago", $self->{name}, $self->{db_age});
           } elsif ($self->opts->mitigation() =~ /(\w+)=(\d+)/ and
             defined $self->{db_age} and $2 < $self->{db_age}) {
-print "kaka\n";
             # die erstellung der db ist schon laenger als der mitigation-zeitraum her
             $self->add_critical(sprintf "%s%s was never backed up", $log, $self->{name});
           } else {
