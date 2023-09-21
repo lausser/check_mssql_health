@@ -44,6 +44,26 @@ sub check {
         label => $label,
         value => $self->{timeouts_per_sec},
     );
+   } elsif ($self->mode =~ /^server::memorypool::lock::timeoutsgt0/) {
+    $self->get_perf_counters([
+        ["timeoutsgt0", "SQLServer:Locks", "Lock Timeouts (timeout > 0)/sec", $self->{name}],
+    ]);
+    return if $self->check_messages();
+    my $label = $self->{name}.'_timeoutsgt0_per_sec';
+    $self->set_thresholds(
+         metric => $label,
+         warning => 1, critical => 5
+    );
+    $self->add_message($self->check_thresholds(
+        metric => $label,
+        value => $self->{timeoutsgt0_per_sec},
+    ), sprintf "%.4f lock timeouts (timeout > 0)/sec for %s",
+        $self->{timeoutsgt0_per_sec}, $self->{name}
+    );
+    $self->add_perfdata(
+        label => $label,
+        value => $self->{timeoutsgt0_per_sec},
+   );
   } elsif ($self->mode =~ /^server::memorypool::lock::deadlocks/) {
     $self->get_perf_counters([
         ["deadlocks", "SQLServer:Locks", "Number of Deadlocks/sec", $self->{name}],
