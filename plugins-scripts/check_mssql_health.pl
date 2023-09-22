@@ -87,6 +87,12 @@ $plugin->add_mode(
     alias => undef,
     help => 'The number of locks per second that timed out',
 );
+ $plugin->add_mode(
+     internal => 'server::memorypool::lock::timeoutsgt0',
+     spec => 'locks-timeouts-greater-0s',
+     alias => undef,
+     help => 'The number of locks per second where timeout is greater than 0',
+);
 $plugin->add_mode(
     internal => 'server::memorypool::lock::deadlocks',
     spec => 'locks-deadlocks',
