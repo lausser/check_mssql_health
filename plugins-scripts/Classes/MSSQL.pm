@@ -27,10 +27,10 @@ sub init {
   $self->set_variable("ishadrenabled", $self->fetchrow_array(
       q{ SELECT CAST(COALESCE(SERVERPROPERTY('IsHadrEnabled'), 0) as int) }
   ));
-  if ($self->mode =~ /^server::connectedusers/) {
-    my $connectedusers;
+  if ($self->mode =~ /^server::connectedsessions/) {
+    my $connectedsessions;
     if ($self->get_variable("product") eq "ASE") {
-      $connectedusers = $self->fetchrow_array(q{
+      $connectedsessions = $self->fetchrow_array(q{
         SELECT
           COUNT(*)
         FROM
@@ -41,7 +41,7 @@ sub init {
     } else {
       # http://www.sqlservercentral.com/articles/System+Tables/66335/
       # user processes start at 51
-      $connectedusers = $self->fetchrow_array(q{
+      $connectedsessions = $self->fetchrow_array(q{
         SELECT
           COUNT(*)
         FROM
@@ -50,16 +50,39 @@ sub init {
           spid >= 51
       });
     }
-    if (! defined $connectedusers) {
-      $self->add_unknown("unable to count connected users");
+    if (! defined $connectedsessions) {
+      $self->add_unknown("unable to count connected sessions");
     } else {
       $self->set_thresholds(warning => 50, critical => 80);
-      $self->add_message($self->check_thresholds($connectedusers),
-          sprintf "%d connected users", $connectedusers);
+      $self->add_message($self->check_thresholds($connectedsessions),
+          sprintf "%d connected sessions", $connectedsessions);
       $self->add_perfdata(
-          label => "connected_users",
-          value => $connectedusers
+          label => "connected_sessions",
+          value => $connectedsessions
       );
+    }
+  } elsif ($self->mode =~ /^server::connectedusers/) {
+    my $connectedusers;
+    if ($self->get_variable("product") eq "ASE") {
+      $connectedusers = $self->fetchrow_array(q{
+        SELECT
+          COUNT(DISTINCT loginame)
+        FROM
+          master..sysprocesses
+        WHERE
+          hostprocess IS NOT NULL AND program_name != 'JS Agent'
+      });
+    } else {
+      # http://www.sqlservercentral.com/articles/System+Tables/66335/
+      # user processes start at 51
+      $connectedusers = $self->fetchrow_array(q{
+        SELECT
+          COUNT(DISTINCT loginame)
+        FROM
+          master..sysprocesses
+        WHERE
+          spid >= 51
+      });
     }
   } elsif ($self->mode =~ /^server::cpubusy/) {
     if ($self->version_is_minimum("9.x")) {
