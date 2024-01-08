@@ -23,7 +23,7 @@ my $plugin = Classes::Device->new(
         '...',
     version => '$Revision: #PACKAGE_VERSION# $',
     blurb => 'This plugin checks microsoft sql servers ',
-    url => 'http://labs.consol.de/nagios/check_mss_health',
+    url => 'http://labs.consol.de/nagios/check_mssql_health',
     timeout => 60,
 );
 $plugin->add_db_modes();
