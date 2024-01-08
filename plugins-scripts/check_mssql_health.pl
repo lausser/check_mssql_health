@@ -28,6 +28,12 @@ my $plugin = Classes::Device->new(
 );
 $plugin->add_db_modes();
 $plugin->add_mode(
+    internal => 'server::uptime',
+    spec => 'uptime',
+    alias => undef,
+    help => 'The time since the server started',
+);
+$plugin->add_mode(
     internal => 'server::cpubusy',
     spec => 'cpu-busy',
     alias => undef,

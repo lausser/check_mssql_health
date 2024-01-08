@@ -287,6 +287,26 @@ sub init {
   } elsif ($self->mode =~ /^server::jobs/) {
     $self->analyze_and_check_job_subsystem("Classes::MSSQL::Component::JobSubsystem");
     $self->reduce_messages_short();
+  } elsif ($self->mode =~ /^server::uptime/) {
+    ($self->{starttime}, $self->{uptime}) = $self->fetchrow_array(q{
+        SELECT
+          CONVERT(VARCHAR, sqlserver_start_time, 127) AS STARTUP_TIME_ISO8601,
+          ROUND(DATEDIFF(SECOND, sqlserver_start_time, GETDATE()), 0) AS UPTIME_SECONDS
+        FROM
+            sys.dm_os_sys_info
+    });
+    $self->set_thresholds(
+        metric => 'uptime',
+        warning => "900:", critical => "300:");
+    $self->add_message(
+        $self->check_thresholds(
+            metric => 'uptime',
+            value => $self->{uptime}),
+        sprintf "instance started at %s", $self->{starttime});
+    $self->add_perfdata(
+        label => 'uptime',
+        value => $self->{uptime},
+    );
   } else {
     $self->no_such_mode();
   }
