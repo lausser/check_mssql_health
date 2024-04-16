@@ -205,6 +205,11 @@ sub init {
           ORDER BY
               d.name
         };
+        if ($self->mode =~ /server::database::(.*backupage::full)/) {
+          $sql =~ s/'D', 'I'/'D'/g;
+        } elsif ($self->mode =~ /server::database::(.*backupage::differential)/) {
+          $sql =~ s/'D', 'I'/'I'/g;
+        }
       } else {
         $sql = q{
           SELECT
@@ -702,7 +707,7 @@ sub finish {
       } @filesystems;
     }
     $self->mbize();
-  } elsif ($self->mode =~ /server::database::(.*backupage)$/) {
+  } elsif ($self->mode =~ /server::database::(.*backupage(::(full|differential))*)$/) {
     if ($self->version_is_minimum("11.x")) {
       if ($self->get_variable('ishadrenabled')) {
         my @replicated_databases = $self->fetchall_array_cached(q{
@@ -947,7 +952,7 @@ sub check {
           max => $self->{logs_max_size} / $factor,
       );
     }
-  } elsif ($self->mode =~ /server::database::(.*backupage)$/) {
+  } elsif ($self->mode =~ /server::database::(.*backupage(::(full|differential))*)$/) {
     if (! $self->is_backup_node) {
       $self->add_ok(sprintf "this is not the preferred replica for backups of %s", $self->{name});
       return;

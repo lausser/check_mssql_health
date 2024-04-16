@@ -220,6 +220,18 @@ $plugin->add_mode(
     help => 'Elapsed time (in hours) since a database was last backed up',
 );
 $plugin->add_mode(
+    internal => 'server::database::backupage::full',
+    spec => 'database-full-backup-age',
+    alias => undef,
+    help => 'Elapsed time (in hours) since a database was last fully backed up',
+);
+$plugin->add_mode(
+    internal => 'server::database::backupage::differential',
+    spec => 'database-differential-backup-age',
+    alias => undef,
+    help => 'Elapsed time (in hours) since a database was last differentially backed up',
+);
+$plugin->add_mode(
     internal => 'server::database::logbackupage',
     spec => 'database-logbackup-age',
     alias => ['logbackup-age'],

@@ -1,3 +1,5 @@
+* 2024-04-16 2.7.7
+  add modes database-differential-backup-age and database-full-backup-age
 * 2024-01-08 2.7.6.1
   fix the url in the help text
 * 2024-01-08 2.7.6
