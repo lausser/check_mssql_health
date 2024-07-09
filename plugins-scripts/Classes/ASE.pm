@@ -17,10 +17,30 @@ sub init {
   $self->set_variable("maxpagesize", $self->fetchrow_array(
       q{ SELECT @@MAXPAGESIZE }
   ));
-  if ($self->mode =~ /^server::connectedusers/) {
+  if ($self->mode =~ /^server::connectedsessions/) {
     my $connectedusers = $self->fetchrow_array(q{
         SELECT
           COUNT(*)
+        FROM
+          master..sysprocesses
+        WHERE
+          hostprocess IS NOT NULL AND program_name != 'JS Agent'
+      });
+    if (! defined $connectedsessions) {
+      $self->add_unknown("unable to count connected sessions");
+    } else {
+      $self->set_thresholds(warning => 50, critical => 80);
+      $self->add_message($self->check_thresholds($connectedsessions),
+          sprintf "%d connected users", $connectedsessions);
+      $self->add_perfdata(
+          label => "connected_sessions",
+          value => $connectedsessions
+      );
+    }
+  } elsif ($self->mode =~ /^server::connectedusers/) {
+    my $connectedusers = $self->fetchrow_array(q{
+        SELECT
+          COUNT(DISTINCT loginame)
         FROM
           master..sysprocesses
         WHERE
