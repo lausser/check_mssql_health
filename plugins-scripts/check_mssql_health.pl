@@ -118,6 +118,12 @@ $plugin->add_mode(
     help => 'Initial compilations per second',
 );
 $plugin->add_mode(
+    internal => 'server::memoryusedtargetratio',
+    spec => 'memory-used-target-ratio',
+    alias => undef,
+    help => 'The amount of memory used / memory target',
+);
+$plugin->add_mode(
     internal => 'server::totalmemory',
     spec => 'total-server-memory',
     alias => undef,

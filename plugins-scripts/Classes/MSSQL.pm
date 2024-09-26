@@ -242,6 +242,36 @@ sub init {
         label => 'batch_requests_per_sec',
         value => $self->{batch_requests_per_sec},
     );
+  } elsif ($self->mode =~ /^server::memoryusedtargetratio/) {
+    if ($self->version_is_minimum("9.x")) {
+      if (! defined ($self->{memory_used_target_ratio} = $self->fetchrow_array(q{
+          SELECT ROUND(100.0 * (
+              SELECT CAST([cntr_value] AS FLOAT)
+              FROM sys.dm_os_performance_counters
+              WHERE             
+              [object_name] LIKE '%Memory Manager%'
+              AND [counter_name] = 'Total Server Memory (KB)'
+              ) / (
+              SELECT CAST([cntr_value] AS FLOAT)
+              FROM sys.dm_os_performance_counters
+              WHERE
+              [object_name] LIKE '%Memory Manager%'
+              AND [counter_name] = 'Target Server Memory (KB)')
+              , 2)AS [Ratio]
+      }))) {
+        $self->add_unknown("got no memory_used_target_ratio from dm_os_sys_info");
+      }
+    }
+    if (! $self->check_messages()) {
+      $self->set_thresholds(warning => '90:', critical => '80:');
+      $self->add_message($self->check_thresholds($self->{memory_used_target_ratio}),
+          sprintf "Used Memory/Target Ratio %.2f%%", $self->{memory_used_target_ratio});
+      $self->add_perfdata(
+          label => 'memory_used_target_ratio',
+          value => $self->{memory_used_target_ratio},
+          uom => '%',
+      );
+    };
   } elsif ($self->mode =~ /^server::totalmemory/) {
     $self->get_perf_counters([
         ['total_server_memory', 'SQLServer:Memory Manager', 'Total Server Memory (KB)'],
