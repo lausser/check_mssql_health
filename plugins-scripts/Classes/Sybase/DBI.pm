@@ -15,14 +15,7 @@ sub check_connect {
     $dsn .= sprintf ";server=%s", $self->opts->server;
   }
   $dsn .= ";encryptPassword=1";
-  if ($self->opts->currentdb) {
-    if (index($self->opts->currentdb,"-") != -1) {
-      # once the database name had to be put in quotes....
-      $dsn .= sprintf ";database=%s", $self->opts->currentdb;
-    } else {
-      $dsn .= sprintf ";database=%s", $self->opts->currentdb;
-    }
-  }
+  
   if (basename($0) =~ /_sybase_/) {
     $dbi_options->{syb_chained_txn} = 1;
     $dsn .= sprintf ";tdsLevel=CS_TDS_42";
@@ -43,6 +36,10 @@ sub check_connect {
         $self->opts->password,
         $dbi_options)) {
       $Monitoring::GLPlugin::DB::session = $self->{handle};
+
+      if ($self->opts->currentdb) {
+        $self->{handle}->do("USE " . $self->opts->currentdb);
+      }
     }
     $self->{tac} = Time::HiRes::time();
     $Monitoring::GLPlugin::DB::session->{syb_flush_finish} = 1;
