@@ -8,6 +8,7 @@ sub check_connect {
   my $stderrvar;
   my $dbi_options = { RaiseError => 1, AutoCommit => $self->opts->commit, PrintError => 1 };
   my $dsn = "DBI:Sybase:";
+  my $dbname;
   if ($self->opts->hostname) {
     $dsn .= sprintf ";host=%s", $self->opts->hostname;
     $dsn .= sprintf ";port=%s", $self->opts->port;
@@ -16,13 +17,13 @@ sub check_connect {
   }
   $dsn .= ";encryptPassword=1";
   if ($self->opts->currentdb) {
-    if (index($self->opts->currentdb,"-") != -1) {
-      # once the database name had to be put in quotes....
-      $dsn .= sprintf ";database=%s", $self->opts->currentdb;
+    # Falls ein Bindestrich im Namen enthalten ist, füge den Namen in Anführungszeichen hinzu, andernfalls direkt
+    if (index($self->opts->currentdb, "-") != -1) {
+        $dbname = sprintf "\"%s\"", $self->opts->currentdb;
     } else {
-      $dsn .= sprintf ";database=%s", $self->opts->currentdb;
+        $dbname = sprintf "%s", $self->opts->currentdb;
     }
-  }
+}
   if (basename($0) =~ /_sybase_/) {
     $dbi_options->{syb_chained_txn} = 1;
     $dsn .= sprintf ";tdsLevel=CS_TDS_42";
@@ -43,6 +44,11 @@ sub check_connect {
         $self->opts->password,
         $dbi_options)) {
       $Monitoring::GLPlugin::DB::session = $self->{handle};
+      if ($self->opts->currentdb) {
+        $self->{handle}->do("USE " . $dbname);
+      }
+
+      
     }
     $self->{tac} = Time::HiRes::time();
     $Monitoring::GLPlugin::DB::session->{syb_flush_finish} = 1;
