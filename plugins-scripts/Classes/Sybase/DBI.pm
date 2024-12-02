@@ -18,7 +18,7 @@ sub check_connect {
   $dsn .= ";encryptPassword=1";
   if ($self->opts->currentdb) {
     # Falls ein Bindestrich im Namen enthalten ist, füge den Namen in Anführungszeichen hinzu, andernfalls direkt
-    if (index($self->opts->currentdb, "-") != -1) {
+    if (index($self->opts->currentdb, "-") != -1 || index($self->opts->currentdb, ".") != -1) || index($self->opts->currentdb, "_") != -1) {
         $dbname = sprintf "\"%s\"", $self->opts->currentdb;
     } else {
         $dbname = sprintf "%s", $self->opts->currentdb;
