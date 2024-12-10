@@ -731,7 +731,7 @@ sub finish {
             SELECT sys.fn_hadr_backup_is_preferred_replica(?)
           }, $self->{name});
         } else {
-          # -> every node hat to be backupped, the db is local on every node
+          # -> every node had to be backupped, the db is local on every node
           $self->{preferred_replica} = 1;
         }
       } else {
@@ -953,7 +953,7 @@ sub check {
       );
     }
   } elsif ($self->mode =~ /server::database::(.*backupage(::(full|differential))*)$/) {
-    if (! $self->is_backup_node) {
+    if (! $self->is_backup_node && ! $self->opts->get("check-all-replicas")) {
       $self->add_ok(sprintf "this is not the preferred replica for backups of %s", $self->{name});
       return;
     }
@@ -1072,8 +1072,13 @@ sub calc {
         $_ =~ s/://g; (($_ * $max_size / 100) / $factor).":";
     } map { my $tmp = $_; $tmp; } ($warning_pct, $critical_pct);
     $self->force_thresholds(metric => $metric_units, warning => $warning_units, critical => $critical_units);
-    $self->add_message($self->check_thresholds(metric => $metric_pct, value => $free_percent),
-        sprintf("%s %s has %.2f%s free %sspace left", $item, $name, $free_percent, $self->opts->units, ($type eq "logs" ? "log " : "")));
+    if ($self->filter_name2($name)) {
+      $self->add_message($self->check_thresholds(metric => $metric_pct, value => $free_percent),
+          sprintf("%s %s has %.2f%s free %sspace left", $item, $name, $free_percent, $self->opts->units, ($type eq "logs" ? "log " : "")));
+    } else {
+      $self->add_ok(
+          sprintf("%s %s has %.2f%s free %sspace left", $item, $name, $free_percent, $self->opts->units, ($type eq "logs" ? "log " : "")));
+    }
   } else {
     $self->set_thresholds(metric => $metric_units, warning => "5:", critical => "10:");
     ($warning_units, $critical_units) = ($self->get_thresholds(metric => $metric_units));
@@ -1081,8 +1086,13 @@ sub calc {
         $_ =~ s/://g; (100 * ($_ * $factor) / $max_size).":";
     } map { my $tmp = $_; $tmp; } ($warning_units, $critical_units);
     $self->force_thresholds(metric => $metric_pct, warning => $warning_pct, critical => $critical_pct);
-    $self->add_message($self->check_thresholds(metric => $metric_units, value => $free_units),
-        sprintf("%s %s has %.2f%s free %sspace left", $item, $name, $free_units, $self->opts->units, ($type eq "logs" ? "log " : "")));
+    if ($self->filter_name2($name)) {
+      $self->add_message($self->check_thresholds(metric => $metric_units, value => $free_units),
+          sprintf("%s %s has %.2f%s free %sspace left", $item, $name, $free_units, $self->opts->units, ($type eq "logs" ? "log " : "")));
+    } else {
+      $self->add_ok(
+          sprintf("%s %s has %.2f%s free %sspace left", $item, $name, $free_units, $self->opts->units, ($type eq "logs" ? "log " : "")));
+    }
   }
   return ($free_percent, $free_size, $free_units, $allocated_percent, $factor);
 }

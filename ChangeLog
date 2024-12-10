@@ -1,3 +1,8 @@
+* 2024-11-12 2.7.8
+  add flag --check-all-replicas so that all replicas get proper backup checks
+  in mode database-free you can use --name2 to filter for filegroups. Matching
+  filegroups will be checked against thresholds, nonmatching will always be OK.
+  (Actually used as --name2 '^(?!(DB::ROFG))' to ignore readonly filegroups)
 * 2024-04-16 2.7.7
   add modes database-differential-backup-age and database-full-backup-age
 * 2024-01-08 2.7.6.1

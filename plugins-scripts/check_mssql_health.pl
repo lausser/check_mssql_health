@@ -411,6 +411,15 @@ $plugin->add_arg(
     help => "--nooffline
    skip the offline databases",
     required => 0,);
+$plugin->add_arg(
+    spec => 'check-all-replicas',
+    help => "--check-all-replicas
+   In an Always On setup the backup the default is to run backup checks
+   only on the preferred replica.
+   For secondary replicas the backup checks return OK by default. Use this flag
+   to check them as well for backup problems.",
+    required => 0,
+);
 
 $plugin->add_db_args();
 $plugin->add_default_args();
