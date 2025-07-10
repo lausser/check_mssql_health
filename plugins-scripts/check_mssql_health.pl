@@ -52,6 +52,12 @@ $plugin->add_mode(
     help => 'Full table scans per second',
 );
 $plugin->add_mode(
+    internal => 'server::connectedsessions',
+    spec => 'connected-sessions',
+    alias => undef,
+    help => 'Number of currently open sessions',
+);
+$plugin->add_mode(
     internal => 'server::connectedusers',
     spec => 'connected-users',
     alias => undef,
