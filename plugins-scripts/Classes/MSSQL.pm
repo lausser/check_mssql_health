@@ -84,6 +84,17 @@ sub init {
           spid >= 51
       });
     }
+    if (! defined $connectedusers) {
+      $self->add_unknown("unable to count connected users");
+    } else {
+      $self->set_thresholds(warning => 50, critical => 80);
+      $self->add_message($self->check_thresholds($connectedusers),
+          sprintf "%d connected users", $connectedusers);
+      $self->add_perfdata(
+          label => "connected_users",
+          value => $connectedusers
+      );
+    } 
   } elsif ($self->mode =~ /^server::cpubusy/) {
     if ($self->version_is_minimum("9.x")) {
       if (! defined ($self->{secs_busy} = $self->fetchrow_array(q{
