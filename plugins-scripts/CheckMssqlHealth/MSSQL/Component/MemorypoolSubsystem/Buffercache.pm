@@ -1,4 +1,4 @@
-package Classes::MSSQL::Component::MemorypoolSubsystem::Buffercache;
+package CheckMssqlHealth::MSSQL::Component::MemorypoolSubsystem::Buffercache;
 our @ISA = qw(Monitoring::GLPlugin::DB::Item);
 use strict;
 

@@ -1,4 +1,4 @@
-package Classes::ASE::Component::DatabaseSubsystem;
+package CheckMssqlHealth::ASE::Component::DatabaseSubsystem;
 our @ISA = qw(Monitoring::GLPlugin::DB::Item);
 use strict;
 
@@ -51,7 +51,7 @@ sub init {
           db_name(d.dbid)
     };
     $self->get_db_tables([
-        ['databases', $sql, 'Classes::ASE::Component::DatabaseSubsystem::Database', $allfilter, $columns],
+        ['databases', $sql, 'CheckMssqlHealth::ASE::Component::DatabaseSubsystem::Database', $allfilter, $columns],
     ]);
     @{$self->{databases}} =  reverse sort {$a->{name} cmp $b->{name}} @{$self->{databases}};
   } elsif ($self->mode =~ /server::database::online/) {
@@ -60,7 +60,7 @@ sub init {
       SELECT name, state, state_desc, collation_name FROM master.sys.databases
     };
     $self->get_db_tables([
-        ['databases', $sql, 'Classes::ASE::Component::DatabaseSubsystem::Database', $allfilter, $columns],
+        ['databases', $sql, 'CheckMssqlHealth::ASE::Component::DatabaseSubsystem::Database', $allfilter, $columns],
     ]);
     @{$self->{databases}} =  reverse sort {$a->{name} cmp $b->{name}} @{$self->{databases}};
   } elsif ($self->mode =~ /server::database::.*backupage/) {
@@ -69,10 +69,10 @@ sub init {
       SELECT name, dbid FROM master..sysdatabases
     };
     $self->get_db_tables([
-        ['databases', $sql, 'Classes::ASE::Component::DatabaseSubsystem::DatabaseStub', $allfilter, $columns],
+        ['databases', $sql, 'CheckMssqlHealth::ASE::Component::DatabaseSubsystem::DatabaseStub', $allfilter, $columns],
     ]);
     foreach (@{$self->{databases}}) {
-      bless $_, 'Classes::ASE::Component::DatabaseSubsystem::Database';
+      bless $_, 'CheckMssqlHealth::ASE::Component::DatabaseSubsystem::Database';
       $_->finish();
     }
   } else {
@@ -81,8 +81,8 @@ sub init {
 }
 
 
-package Classes::ASE::Component::DatabaseSubsystem::DatabaseStub;
-our @ISA = qw(Classes::ASE::Component::DatabaseSubsystem::Database);
+package CheckMssqlHealth::ASE::Component::DatabaseSubsystem::DatabaseStub;
+our @ISA = qw(CheckMssqlHealth::ASE::Component::DatabaseSubsystem::Database);
 use strict;
 
 sub finish {
@@ -109,7 +109,7 @@ sub finish {
   $self->{recovery_model} = 0;
 }
 
-package Classes::ASE::Component::DatabaseSubsystem::Database;
+package CheckMssqlHealth::ASE::Component::DatabaseSubsystem::Database;
 our @ISA = qw(Monitoring::GLPlugin::DB::TableItem);
 use strict;
 

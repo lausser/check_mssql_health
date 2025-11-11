@@ -1,4 +1,4 @@
-package Classes::APS::Disk::DiskSubsystem;
+package CheckMssqlHealth::APS::Disk::DiskSubsystem;
 our @ISA = qw(Monitoring::GLPlugin::DB::Item);
 use strict;
 
@@ -23,13 +23,13 @@ sub init {
             NodeName, VolumeName DESC";
     };
     $self->get_db_tables([
-        ['disks', $sql, 'Classes::APS::Disk::DiskSubsystem::Disk', sub { my $o = shift; $self->filter_name($o->{name}); }, $columns],
+        ['disks', $sql, 'CheckMssqlHealth::APS::Disk::DiskSubsystem::Disk', sub { my $o = shift; $self->filter_name($o->{name}); }, $columns],
     ]);
   }
 }
 
 
-package Classes::APS::Disk::DiskSubsystem::Disk;
+package CheckMssqlHealth::APS::Disk::DiskSubsystem::Disk;
 our @ISA = qw(Monitoring::GLPlugin::DB::TableItem);
 use strict;
 

@@ -1,5 +1,5 @@
-package Classes::APS;
-our @ISA = qw(Classes::Sybase);
+package CheckMssqlHealth::APS;
+our @ISA = qw(CheckMssqlHealth::Sybase);
 
 use strict;
 use Time::HiRes;
@@ -15,11 +15,11 @@ sub init {
       q{ SELECT SYSTEM_USER }
   ));
   if ($self->mode =~ /^server::aps::component/) {
-    $self->analyze_and_check_component_subsystem("Classes::APS::Component::ComponentSubsystem");
+    $self->analyze_and_check_component_subsystem("CheckMssqlHealth::APS::Component::ComponentSubsystem");
   } elsif ($self->mode =~ /^server::aps::alert/) {
-    $self->analyze_and_check_alert_subsystem("Classes::APS::Component::AlertSubsystem");
+    $self->analyze_and_check_alert_subsystem("CheckMssqlHealth::APS::Component::AlertSubsystem");
   } elsif ($self->mode =~ /^server::aps::disk/) {
-    $self->analyze_and_check_alert_subsystem("Classes::APS::Component::DiskSubsystem");
+    $self->analyze_and_check_alert_subsystem("CheckMssqlHealth::APS::Component::DiskSubsystem");
   } else {
     $self->no_such_mode();
   }

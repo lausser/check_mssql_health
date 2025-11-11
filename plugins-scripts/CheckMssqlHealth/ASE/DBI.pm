@@ -1,3 +1,3 @@
-package Classes::ASE::DBI;
-our @ISA = qw(Classes::ASE Classes::Sybase::DBI);
+package CheckMssqlHealth::ASE::DBI;
+our @ISA = qw(CheckMssqlHealth::ASE CheckMssqlHealth::Sybase::DBI);
 use strict;

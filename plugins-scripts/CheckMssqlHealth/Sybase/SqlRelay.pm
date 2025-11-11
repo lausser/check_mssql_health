@@ -1,5 +1,5 @@
-package Classes::Sybase::SqlRelay;
-our @ISA = qw(Classes::Sybase Monitoring::GLPlugin::DB::DBI);
+package CheckMssqlHealth::Sybase::SqlRelay;
+our @ISA = qw(CheckMssqlHealth::Sybase Monitoring::GLPlugin::DB::DBI);
 use strict;
 use File::Basename;
 

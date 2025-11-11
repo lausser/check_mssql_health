@@ -1,4 +1,4 @@
-package Classes::MSSQL::Component::AvailabilitygroupSubsystem;
+package CheckMssqlHealth::MSSQL::Component::AvailabilitygroupSubsystem;
 our @ISA = qw(Monitoring::GLPlugin::DB::Item);
 use strict;
 
@@ -61,7 +61,7 @@ sub init {
       };
 
       $self->get_db_tables([
-          ['avgroups', $sqlag, 'Classes::MSSQL::Component::AvailabilitygroupSubsystem::Availabilitygroup', $avgfilter, $columnsag],
+          ['avgroups', $sqlag, 'CheckMssqlHealth::MSSQL::Component::AvailabilitygroupSubsystem::Availabilitygroup', $avgfilter, $columnsag],
           ['replicas', $sqlrs, 'Monitoring::GLPlugin::DB::TableItem', $avgfilter, $columnsrs],
       ]);
       foreach my $avgroup (@{$self->{avgroups}}) {
@@ -94,11 +94,11 @@ sub check {
 }
 
 
-package Classes::MSSQL::Component::AvailabilitygroupSubsystem::Replicastate;
+package CheckMssqlHealth::MSSQL::Component::AvailabilitygroupSubsystem::Replicastate;
 our @ISA = qw(Monitoring::GLPlugin::DB::TableItem);
 use strict;
 
-package Classes::MSSQL::Component::AvailabilitygroupSubsystem::Availabilitygroup;
+package CheckMssqlHealth::MSSQL::Component::AvailabilitygroupSubsystem::Availabilitygroup;
 our @ISA = qw(Monitoring::GLPlugin::DB::TableItem);
 use strict;
 

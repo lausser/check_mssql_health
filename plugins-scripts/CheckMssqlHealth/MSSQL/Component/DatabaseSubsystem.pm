@@ -1,4 +1,4 @@
-package Classes::MSSQL::Component::DatabaseSubsystem;
+package CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem;
 our @ISA = qw(Monitoring::GLPlugin::DB::Item);
 use strict;
 
@@ -96,12 +96,12 @@ sub init {
       $self->filesystems();
     }
     $self->get_db_tables([
-        ['databases', $sql, 'Classes::MSSQL::Component::DatabaseSubsystem::DatabaseStub', $allfilter, $columns],
+        ['databases', $sql, 'CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::DatabaseStub', $allfilter, $columns],
     ]);
     @{$self->{databases}} =  reverse sort {$a->{name} cmp $b->{name}} @{$self->{databases}};
     foreach (@{$self->{databases}}) {
       # extra Schritt, weil finish() aufwendig ist und bei --name sparsamer aufgerufen wird
-      bless $_, 'Classes::MSSQL::Component::DatabaseSubsystem::Database';
+      bless $_, 'CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database';
       $_->finish();
     }
   } elsif ($self->mode =~ /server::database::online/) {
@@ -166,7 +166,7 @@ sub init {
       }
     }
     $self->get_db_tables([
-        ['databases', $sql, 'Classes::MSSQL::Component::DatabaseSubsystem::Database', $allfilter, $columns],
+        ['databases', $sql, 'CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database', $allfilter, $columns],
     ]);
     @{$self->{databases}} =  reverse sort {$a->{name} cmp $b->{name}} @{$self->{databases}};
   } elsif ($self->mode =~ /server::database::(.*backupage)/) {
@@ -275,11 +275,11 @@ sub init {
       }
     }
     $self->get_db_tables([
-        ['databases', $sql, 'Classes::MSSQL::Component::DatabaseSubsystem::DatabaseStub', $allfilter, $columns],
+        ['databases', $sql, 'CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::DatabaseStub', $allfilter, $columns],
     ]);
     @{$self->{databases}} =  reverse sort {$a->{name} cmp $b->{name}} @{$self->{databases}};
     foreach (@{$self->{databases}}) {
-      bless $_, 'Classes::MSSQL::Component::DatabaseSubsystem::Database';
+      bless $_, 'CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database';
       $_->finish();
     }
   } elsif ($self->mode =~ /server::database::auto(growths|shrinks)/) {
@@ -330,8 +330,8 @@ sub init {
         $evt_sql =~ s/EVENTNAME/'Data File Auto Shrink'/;
       }
       $self->get_db_tables([
-          ['databases', $db_sql, 'Classes::MSSQL::Component::DatabaseSubsystem::Database', $allfilter, $db_columns],
-          ['events', $evt_sql, 'Classes::MSSQL::Component::DatabaseSubsystem::Database', $allfilter, $evt_columns, [$self->opts->lookback]],
+          ['databases', $db_sql, 'CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database', $allfilter, $db_columns],
+          ['events', $evt_sql, 'CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database', $allfilter, $evt_columns, [$self->opts->lookback]],
       ]);
       @{$self->{databases}} =  reverse sort {$a->{name} cmp $b->{name}} @{$self->{databases}};
       foreach my $database (@{$self->{databases}}) {
@@ -378,8 +378,8 @@ sub init {
               databasename
       };
       $self->get_db_tables([
-          ['databases', $db_sql, 'Classes::MSSQL::Component::DatabaseSubsystem::Database', $allfilter, $db_columns],
-          ['events', $evt_sql, 'Classes::MSSQL::Component::DatabaseSubsystem::Database', $allfilter, $evt_columns, [$self->opts->lookback]],
+          ['databases', $db_sql, 'CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database', $allfilter, $db_columns],
+          ['events', $evt_sql, 'CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database', $allfilter, $evt_columns, [$self->opts->lookback]],
       ]);
       @{$self->{databases}} =  reverse sort {$a->{name} cmp $b->{name}} @{$self->{databases}};
       foreach my $database (@{$self->{databases}}) {
@@ -484,11 +484,11 @@ sub filesystems {
   $self->get_db_tables([
       ['filesystems', 'exec master.dbo.xp_fixeddrives', 'Monitoring::GLPlugin::DB::TableItem', undef, ['drive', 'mb_free']],
   ]);
-  $Classes::MSSQL::Component::DatabaseSubsystem::filesystems =
+  $CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::filesystems =
       { map { uc $_->{drive} => 1024 * 1024 * $_->{mb_free} } @{$self->{filesystems}} };
 }
 
-package Classes::MSSQL::Component::DatabaseSubsystem::DatabaseStub;
+package CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::DatabaseStub;
 our @ISA = qw(Monitoring::GLPlugin::DB::TableItem);
 use strict;
 
@@ -599,8 +599,8 @@ sub mbize {
   }
 }
 
-package Classes::MSSQL::Component::DatabaseSubsystem::Database;
-our @ISA = qw(Monitoring::GLPlugin::DB::TableItem Classes::MSSQL::Component::DatabaseSubsystem::DatabaseStub);
+package CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database;
+our @ISA = qw(Monitoring::GLPlugin::DB::TableItem CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::DatabaseStub);
 use strict;
 
 sub finish {
@@ -609,7 +609,7 @@ sub finish {
   if ($self->mode =~ /server::database::(free.*|datafree.*|logfree.*|size)$/ ||
       $self->mode =~ /server::database::(file|filegroup)/) {
     # private copy for this database
-    %{$self->{filesystems}} = %{$Classes::MSSQL::Component::DatabaseSubsystem::filesystems};
+    %{$self->{filesystems}} = %{$CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::filesystems};
     my @filesystems = keys %{$self->{filesystems}};
     $self->{size} = 0;
     $self->{max_size} = 0;
@@ -658,14 +658,14 @@ sub finish {
     if ($self->is_online) {
       $self->localize_errors();
       $self->get_db_tables([
-        ['files', $sql, 'Classes::MSSQL::Component::DatabaseSubsystem::Database::Datafile', undef, $columns],
+        ['files', $sql, 'CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database::Datafile', undef, $columns],
       ]);
       $self->globalize_errors();
       $self->{filegroups} = [];
       my %seen = ();
       foreach my $group (grep !$seen{$_}++, map { $_->{filegroup_name} } @{$self->{files}}) {
         push (@{$self->{filegroups}},
-            Classes::MSSQL::Component::DatabaseSubsystem::Database::Datafilegroup->new(
+            CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database::Datafilegroup->new(
                 name => $group,
                 database_name => $self->{name},
                 files => [grep { $_->{filegroup_name} eq $group } @{$self->{files}}],
@@ -1097,13 +1097,13 @@ sub calc {
   return ($free_percent, $free_size, $free_units, $allocated_percent, $factor);
 }
 
-package Classes::MSSQL::Component::DatabaseSubsystem::Database::Datafilegroup;
-our @ISA = qw(Classes::MSSQL::Component::DatabaseSubsystem::Database);
+package CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database::Datafilegroup;
+our @ISA = qw(CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database);
 use strict;
 
 sub finish {
   my ($self, %params) = @_;
-  %{$self->{filesystems}} = %{$Classes::MSSQL::Component::DatabaseSubsystem::filesystems};
+  %{$self->{filesystems}} = %{$CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::filesystems};
   my @filesystems = keys %{$self->{filesystems}};
   $self->{full_name} = sprintf "%s::%s",
       $self->{database_name}, $self->{name};
@@ -1201,13 +1201,13 @@ sub check {
   }
 }
 
-package Classes::MSSQL::Component::DatabaseSubsystem::Database::Datafile;
-our @ISA = qw(Classes::MSSQL::Component::DatabaseSubsystem::Database);
+package CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database::Datafile;
+our @ISA = qw(CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::Database);
 use strict;
 
 sub finish {
   my ($self) = @_;
-  %{$self->{filesystems}} = %{$Classes::MSSQL::Component::DatabaseSubsystem::filesystems};
+  %{$self->{filesystems}} = %{$CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem::filesystems};
   $self->{full_name} = sprintf "%s::%s::%s",
       $self->{database_name}, $self->{filegroup_name}, $self->{name};
   # 8k-pages, umrechnen in bytes

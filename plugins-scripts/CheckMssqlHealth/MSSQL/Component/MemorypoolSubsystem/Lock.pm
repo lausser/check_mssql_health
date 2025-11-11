@@ -1,4 +1,4 @@
-package Classes::MSSQL::Component::MemorypoolSubsystem::Lock;
+package CheckMssqlHealth::MSSQL::Component::MemorypoolSubsystem::Lock;
 our @ISA = qw(Monitoring::GLPlugin::DB::TableItem);
 use strict;
 

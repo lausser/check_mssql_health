@@ -1,3 +1,3 @@
-package Classes::MSSQL::Sqsh;
-our @ISA = qw(Classes::MSSQL Classes::Sybase::Sqsh);
+package CheckMssqlHealth::MSSQL::Sqsh;
+our @ISA = qw(CheckMssqlHealth::MSSQL CheckMssqlHealth::Sybase::Sqsh);
 use strict;

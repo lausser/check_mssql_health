@@ -14,7 +14,7 @@ if ($@) {
   exit 3;
 }
 
-my $plugin = Classes::Device->new(
+my $plugin = CheckMssqlHealth::Device->new(
     shortname => '',
     usage => '%s [-v] [-t <timeout>] '.
         '--hostname=<db server hostname> [--port <port>] '.

@@ -1,5 +1,5 @@
-package Classes::Sybase::DBI;
-our @ISA = qw(Classes::Sybase Monitoring::GLPlugin::DB::DBI);
+package CheckMssqlHealth::Sybase::DBI;
+our @ISA = qw(CheckMssqlHealth::Sybase Monitoring::GLPlugin::DB::DBI);
 use strict;
 use File::Basename;
 
@@ -247,10 +247,10 @@ sub add_dbi_funcs {
   $self->SUPER::add_dbi_funcs();
   {
     no strict 'refs';
-    *{'Monitoring::GLPlugin::DB::fetchall_array'} = \&{"Classes::Sybase::DBI::fetchall_array"};
-    *{'Monitoring::GLPlugin::DB::fetchrow_array'} = \&{"Classes::Sybase::DBI::fetchrow_array"};
-    *{'Monitoring::GLPlugin::DB::exec_sp_1hash'} = \&{"Classes::Sybase::DBI::exec_sp_1hash"};
-    *{'Monitoring::GLPlugin::DB::execute'} = \&{"Classes::Sybase::DBI::execute"};
+    *{'Monitoring::GLPlugin::DB::fetchall_array'} = \&{"CheckMssqlHealth::Sybase::DBI::fetchall_array"};
+    *{'Monitoring::GLPlugin::DB::fetchrow_array'} = \&{"CheckMssqlHealth::Sybase::DBI::fetchrow_array"};
+    *{'Monitoring::GLPlugin::DB::exec_sp_1hash'} = \&{"CheckMssqlHealth::Sybase::DBI::exec_sp_1hash"};
+    *{'Monitoring::GLPlugin::DB::execute'} = \&{"CheckMssqlHealth::Sybase::DBI::execute"};
   }
 }
 

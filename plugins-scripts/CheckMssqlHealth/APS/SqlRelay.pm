@@ -1,3 +1,3 @@
-package Classes::APS::Sqlrelay;
-our @ISA = qw(Classes::APS Classes::Sybase::Sqlrelay);
+package CheckMssqlHealth::APS::Sqlrelay;
+our @ISA = qw(CheckMssqlHealth::APS CheckMssqlHealth::Sybase::Sqlrelay);
 use strict;

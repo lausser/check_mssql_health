@@ -1,5 +1,5 @@
-package Classes::Sybase::Sqsh;
-our @ISA = qw(Classes::Sybase);
+package CheckMssqlHealth::Sybase::Sqsh;
+our @ISA = qw(CheckMssqlHealth::Sybase);
 use strict;
 use File::Basename;
 
@@ -237,12 +237,12 @@ sub add_dbi_funcs {
   $self->SUPER::add_dbi_funcs();
   {
     no strict 'refs';
-    *{'Monitoring::GLPlugin::DB::create_cmd_line'} = \&{"Classes::Sybase::Sqsh::create_cmd_line"};
-    *{'Monitoring::GLPlugin::DB::write_extcmd_file'} = \&{"Classes::Sybase::Sqsh::write_extcmd_file"};
-    *{'Monitoring::GLPlugin::DB::decode_rfc3986'} = \&{"Classes::Sybase::Sqsh::decode_rfc3986"};
-    *{'Monitoring::GLPlugin::DB::fetchall_array'} = \&{"Classes::Sybase::Sqsh::fetchall_array"};
-    *{'Monitoring::GLPlugin::DB::fetchrow_array'} = \&{"Classes::Sybase::Sqsh::fetchrow_array"};
-    *{'Monitoring::GLPlugin::DB::execute'} = \&{"Classes::Sybase::Sqsh::execute"};
+    *{'Monitoring::GLPlugin::DB::create_cmd_line'} = \&{"CheckMssqlHealth::Sybase::Sqsh::create_cmd_line"};
+    *{'Monitoring::GLPlugin::DB::write_extcmd_file'} = \&{"CheckMssqlHealth::Sybase::Sqsh::write_extcmd_file"};
+    *{'Monitoring::GLPlugin::DB::decode_rfc3986'} = \&{"CheckMssqlHealth::Sybase::Sqsh::decode_rfc3986"};
+    *{'Monitoring::GLPlugin::DB::fetchall_array'} = \&{"CheckMssqlHealth::Sybase::Sqsh::fetchall_array"};
+    *{'Monitoring::GLPlugin::DB::fetchrow_array'} = \&{"CheckMssqlHealth::Sybase::Sqsh::fetchrow_array"};
+    *{'Monitoring::GLPlugin::DB::execute'} = \&{"CheckMssqlHealth::Sybase::Sqsh::execute"};
   }
 }
 

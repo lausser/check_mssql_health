@@ -1,4 +1,4 @@
-package Classes::APS::Component::AlertSubsystem;
+package CheckMssqlHealth::APS::Component::AlertSubsystem;
 our @ISA = qw(Monitoring::GLPlugin::DB::Item);
 use strict;
 
@@ -27,7 +27,7 @@ sub init {
             CreateTime DESC
     };
     $self->get_db_tables([
-        ['alerts', $sql, 'Classes::APS::Component::AlertSubsystem::Alert', sub { my $o = shift; $self->filter_name($o->{name}); }, $columns],
+        ['alerts', $sql, 'CheckMssqlHealth::APS::Component::AlertSubsystem::Alert', sub { my $o = shift; $self->filter_name($o->{name}); }, $columns],
     ]);
   }
 }
@@ -58,7 +58,7 @@ sub check {
   }
 }
 
-package Classes::APS::Component::AlertSubsystem::Alert;
+package CheckMssqlHealth::APS::Component::AlertSubsystem::Alert;
 our @ISA = qw(Monitoring::GLPlugin::DB::TableItem);
 use strict;
 

@@ -1,5 +1,5 @@
-package Classes::ASE;
-our @ISA = qw(Classes::Sybase);
+package CheckMssqlHealth::ASE;
+our @ISA = qw(CheckMssqlHealth::Sybase);
 
 use strict;
 use Time::HiRes;
@@ -38,7 +38,7 @@ sub init {
       );
     }
   } elsif ($self->mode =~ /^server::database/) {
-    $self->analyze_and_check_database_subsystem("Classes::ASE::Component::DatabaseSubsystem");
+    $self->analyze_and_check_database_subsystem("CheckMssqlHealth::ASE::Component::DatabaseSubsystem");
     $self->reduce_messages_short();
   } else {
     $self->no_such_mode();

@@ -1,4 +1,4 @@
-package Classes::APS::Component::ComponentSubsystem;
+package CheckMssqlHealth::APS::Component::ComponentSubsystem;
 our @ISA = qw(Monitoring::GLPlugin::DB::Item);
 use strict;
 
@@ -24,7 +24,7 @@ sub init {
             ComponentName desc";
     };
     $self->get_db_tables([
-        ['components', $sql, 'Classes::APS::Component::ComponentSubsystem::Component', sub { my $o = shift; $self->filter_name($o->{name}); }, $columns],
+        ['components', $sql, 'CheckMssqlHealth::APS::Component::ComponentSubsystem::Component', sub { my $o = shift; $self->filter_name($o->{name}); }, $columns],
     ]);
   }
 }
@@ -46,7 +46,7 @@ sub check {
   }
 }
 
-package Classes::APS::Component::ComponentSubsystem::Component;
+package CheckMssqlHealth::APS::Component::ComponentSubsystem::Component;
 our @ISA = qw(Monitoring::GLPlugin::DB::TableItem);
 use strict;
 

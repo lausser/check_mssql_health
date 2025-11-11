@@ -1,4 +1,4 @@
-package Classes::MSSQL::Component::MemorypoolSubsystem;
+package CheckMssqlHealth::MSSQL::Component::MemorypoolSubsystem;
 our @ISA = qw(Monitoring::GLPlugin::DB::Item);
 use strict;
 
@@ -17,10 +17,10 @@ sub init {
     } @locks;
     $sql = join(" UNION ALL ", map { "SELECT ".$_ } @locks);
     $self->get_db_tables([
-        ['locks', $sql, 'Classes::MSSQL::Component::MemorypoolSubsystem::Lock', sub { my $o = shift; $self->filter_name($o->{name}) }, $columns],
+        ['locks', $sql, 'CheckMssqlHealth::MSSQL::Component::MemorypoolSubsystem::Lock', sub { my $o = shift; $self->filter_name($o->{name}) }, $columns],
     ]);      
   } elsif ($self->mode =~ /server::memorypool::buffercache/) {
-    $self->analyze_and_check_buffercache_subsystem("Classes::MSSQL::Component::MemorypoolSubsystem::Buffercache");
+    $self->analyze_and_check_buffercache_subsystem("CheckMssqlHealth::MSSQL::Component::MemorypoolSubsystem::Buffercache");
   }
 }
 

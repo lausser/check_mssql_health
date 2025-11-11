@@ -1,4 +1,4 @@
-package Classes::Device;
+package CheckMssqlHealth::Device;
 our @ISA = qw(Monitoring::GLPlugin::DB);
 use strict;
 
@@ -6,7 +6,7 @@ use strict;
 sub classify {
   my $self = shift;
   if ($self->opts->method eq "dbi") {
-    bless $self, "Classes::Sybase::DBI";
+    bless $self, "CheckMssqlHealth::Sybase::DBI";
     if ((! $self->opts->hostname && ! $self->opts->server) ||
         ! $self->opts->username || ! $self->opts->password) {
       $self->add_unknown('Please specify hostname or server, username and password');
@@ -15,19 +15,19 @@ sub classify {
       $self->add_critical('could not load perl module DBD::Sybase');
     }
   } elsif ($self->opts->method eq "sqsh") {
-    bless $self, "Classes::Sybase::Sqsh";
+    bless $self, "CheckMssqlHealth::Sybase::Sqsh";
     if ((! $self->opts->hostname && ! $self->opts->server) ||
         ! $self->opts->username || ! $self->opts->password) {
       $self->add_unknown('Please specify hostname or server, username and password');
     }
   } elsif ($self->opts->method eq "sqlcmd") {
-    bless $self, "Classes::Sybase::Sqlcmd";
+    bless $self, "CheckMssqlHealth::Sybase::Sqlcmd";
     if ((! $self->opts->hostname && ! $self->opts->server) ||
         ! $self->opts->username || ! $self->opts->password) {
       $self->add_unknown('Please specify hostname or server, username and password');
     }
   } elsif ($self->opts->method eq "sqlrelay") {
-    bless $self, "Classes::Sybase::Sqlrelay";
+    bless $self, "CheckMssqlHealth::Sybase::Sqlrelay";
     if ((! $self->opts->hostname && ! $self->opts->server) ||
         ! $self->opts->username || ! $self->opts->password) {
       $self->add_unknown('Please specify hostname or server, username and password');

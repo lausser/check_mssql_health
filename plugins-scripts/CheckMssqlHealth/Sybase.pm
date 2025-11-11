@@ -1,5 +1,5 @@
-package Classes::Sybase;
-our @ISA = qw(Classes::Device);
+package CheckMssqlHealth::Sybase;
+our @ISA = qw(CheckMssqlHealth::Device);
 
 use strict;
 use Time::HiRes;
@@ -60,7 +60,7 @@ sub add_dbi_funcs {
   my $self = shift;
   {
     no strict 'refs';
-    *{'Monitoring::GLPlugin::DB::CSF::create_statefile'} = \&{"Classes::Sybase::create_statefile"};
+    *{'Monitoring::GLPlugin::DB::CSF::create_statefile'} = \&{"CheckMssqlHealth::Sybase::create_statefile"};
   }
 }
 

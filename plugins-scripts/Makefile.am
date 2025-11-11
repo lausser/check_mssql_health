@@ -12,33 +12,33 @@ GL_MODULES=\
   ../GLPlugin/lib/Monitoring/GLPlugin/DB/Item.pm \
   ../GLPlugin/lib/Monitoring/GLPlugin/DB/TableItem.pm
 EXTRA_MODULES=\
-  Classes/MSSQL/Component/AvailabilitygroupSubsystem.pm \
-  Classes/MSSQL/Component/DatabaseSubsystem.pm \
-  Classes/MSSQL/Component/MemorypoolSubsystem/Buffercache.pm \
-  Classes/MSSQL/Component/MemorypoolSubsystem/Lock.pm \
-  Classes/MSSQL/Component/MemorypoolSubsystem.pm \
-  Classes/MSSQL/Component/JobSubsystem.pm \
-  Classes/MSSQL/SqlRelay.pm \
-  Classes/MSSQL/Sqsh.pm \
-  Classes/MSSQL/DBI.pm \
-  Classes/MSSQL.pm \
-  Classes/ASE/Component/DatabaseSubsystem.pm \
-  Classes/ASE/SqlRelay.pm \
-  Classes/ASE/Sqsh.pm \
-  Classes/ASE/DBI.pm \
-  Classes/ASE.pm \
-  Classes/APS/Component/ComponentSubsystem.pm \
-  Classes/APS/Component/DiskSubsystem.pm \
-  Classes/APS/Component/AlertSubsystem.pm \
-  Classes/APS/SqlRelay.pm \
-  Classes/APS/Sqsh.pm \
-  Classes/APS/DBI.pm \
-  Classes/APS.pm \
-  Classes/Sybase/SqlRelay.pm \
-  Classes/Sybase/Sqsh.pm \
-  Classes/Sybase/DBI.pm \
-  Classes/Sybase.pm \
-  Classes/Device.pm
+  CheckMssqlHealth/MSSQL/Component/AvailabilitygroupSubsystem.pm \
+  CheckMssqlHealth/MSSQL/Component/DatabaseSubsystem.pm \
+  CheckMssqlHealth/MSSQL/Component/MemorypoolSubsystem/Buffercache.pm \
+  CheckMssqlHealth/MSSQL/Component/MemorypoolSubsystem/Lock.pm \
+  CheckMssqlHealth/MSSQL/Component/MemorypoolSubsystem.pm \
+  CheckMssqlHealth/MSSQL/Component/JobSubsystem.pm \
+  CheckMssqlHealth/MSSQL/SqlRelay.pm \
+  CheckMssqlHealth/MSSQL/Sqsh.pm \
+  CheckMssqlHealth/MSSQL/DBI.pm \
+  CheckMssqlHealth/MSSQL.pm \
+  CheckMssqlHealth/ASE/Component/DatabaseSubsystem.pm \
+  CheckMssqlHealth/ASE/SqlRelay.pm \
+  CheckMssqlHealth/ASE/Sqsh.pm \
+  CheckMssqlHealth/ASE/DBI.pm \
+  CheckMssqlHealth/ASE.pm \
+  CheckMssqlHealth/APS/Component/ComponentSubsystem.pm \
+  CheckMssqlHealth/APS/Component/DiskSubsystem.pm \
+  CheckMssqlHealth/APS/Component/AlertSubsystem.pm \
+  CheckMssqlHealth/APS/SqlRelay.pm \
+  CheckMssqlHealth/APS/Sqsh.pm \
+  CheckMssqlHealth/APS/DBI.pm \
+  CheckMssqlHealth/APS.pm \
+  CheckMssqlHealth/Sybase/SqlRelay.pm \
+  CheckMssqlHealth/Sybase/Sqsh.pm \
+  CheckMssqlHealth/Sybase/DBI.pm \
+  CheckMssqlHealth/Sybase.pm \
+  CheckMssqlHealth/Device.pm
 
 
 SED=/bin/sed

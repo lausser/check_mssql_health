@@ -1,5 +1,5 @@
-package Classes::MSSQL;
-our @ISA = qw(Classes::Sybase);
+package CheckMssqlHealth::MSSQL;
+our @ISA = qw(CheckMssqlHealth::Sybase);
 
 use strict;
 use Time::HiRes;
@@ -276,16 +276,16 @@ sub init {
         uom => $self->opts->units,
     );
   } elsif ($self->mode =~ /^server::memorypool/) {
-    $self->analyze_and_check_memorypool_subsystem("Classes::MSSQL::Component::MemorypoolSubsystem");
+    $self->analyze_and_check_memorypool_subsystem("CheckMssqlHealth::MSSQL::Component::MemorypoolSubsystem");
     $self->reduce_messages_short();
   } elsif ($self->mode =~ /^server::database/) {
-    $self->analyze_and_check_database_subsystem("Classes::MSSQL::Component::DatabaseSubsystem");
+    $self->analyze_and_check_database_subsystem("CheckMssqlHealth::MSSQL::Component::DatabaseSubsystem");
     $self->reduce_messages_short();
   } elsif ($self->mode =~ /^server::availabilitygroup/) {
-    $self->analyze_and_check_avgroup_subsystem("Classes::MSSQL::Component::AvailabilitygroupSubsystem");
+    $self->analyze_and_check_avgroup_subsystem("CheckMssqlHealth::MSSQL::Component::AvailabilitygroupSubsystem");
     $self->reduce_messages_short();
   } elsif ($self->mode =~ /^server::jobs/) {
-    $self->analyze_and_check_job_subsystem("Classes::MSSQL::Component::JobSubsystem");
+    $self->analyze_and_check_job_subsystem("CheckMssqlHealth::MSSQL::Component::JobSubsystem");
     $self->reduce_messages_short();
   } elsif ($self->mode =~ /^server::uptime/) {
     ($self->{starttime}, $self->{uptime}) = $self->fetchrow_array(q{
@@ -460,10 +460,10 @@ sub add_dbi_funcs {
   $self->SUPER::add_dbi_funcs() if $self->SUPER::can('add_dbi_funcs');
   {
     no strict 'refs';
-    *{'Monitoring::GLPlugin::DB::get_instance_names'} = \&{"Classes::MSSQL::get_instance_names"};
-    *{'Monitoring::GLPlugin::DB::get_perf_counters'} = \&{"Classes::MSSQL::get_perf_counters"};
-    *{'Monitoring::GLPlugin::DB::get_perf_counter'} = \&{"Classes::MSSQL::get_perf_counter"};
-    *{'Monitoring::GLPlugin::DB::get_perf_counter_instance'} = \&{"Classes::MSSQL::get_perf_counter_instance"};
+    *{'Monitoring::GLPlugin::DB::get_instance_names'} = \&{"CheckMssqlHealth::MSSQL::get_instance_names"};
+    *{'Monitoring::GLPlugin::DB::get_perf_counters'} = \&{"CheckMssqlHealth::MSSQL::get_perf_counters"};
+    *{'Monitoring::GLPlugin::DB::get_perf_counter'} = \&{"CheckMssqlHealth::MSSQL::get_perf_counter"};
+    *{'Monitoring::GLPlugin::DB::get_perf_counter_instance'} = \&{"CheckMssqlHealth::MSSQL::get_perf_counter_instance"};
   }
 }
 

@@ -1,4 +1,4 @@
-package Classes::MSSQL::Component::JobSubsystem;
+package CheckMssqlHealth::MSSQL::Component::JobSubsystem;
 our @ISA = qw(Monitoring::GLPlugin::DB::Item);
 use strict;
 
@@ -96,7 +96,7 @@ sub init {
                 [JobName]
       };
       $self->get_db_tables([
-          ['jobs', $sql, 'Classes::MSSQL::Component::JobSubsystem::Job', sub { $self->opts->lookback;my $o = shift; $self->filter_name($o->{name}) && (! defined $o->{minutessincestart} || $o->{minutessincestart} <= $self->opts->lookback);  }, $columns],
+          ['jobs', $sql, 'CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job', sub { $self->opts->lookback;my $o = shift; $self->filter_name($o->{name}) && (! defined $o->{minutessincestart} || $o->{minutessincestart} <= $self->opts->lookback);  }, $columns],
       ]);      
 @{$self->{jobs}} = reverse @{$self->{jobs}};
     }
@@ -121,7 +121,7 @@ sub check {
   }
 }
 
-package Classes::MSSQL::Component::JobSubsystem::Job;
+package CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job;
 our @ISA = qw(Monitoring::GLPlugin::DB::TableItem);
 use strict;
 
