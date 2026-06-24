@@ -1,3 +1,3 @@
-package Classes::MSSQL::Sqlrelay;
-our @ISA = qw(Classes::MSSQL Classes::Sybase::Sqlrelay);
+package Classes::MSSQL::SqlRelay;
+our @ISA = qw(Classes::MSSQL Classes::Sybase::SqlRelay);
 use strict;

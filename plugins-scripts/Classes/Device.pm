@@ -21,13 +21,15 @@ sub classify {
       $self->add_unknown('Please specify hostname or server, username and password');
     }
   } elsif ($self->opts->method eq "sqlcmd") {
-    bless $self, "Classes::Sybase::Sqlcmd";
+    # sqlcmd follows the sqsh code path; keep the method name as a
+    # compatibility alias instead of exposing a broken backend.
+    bless $self, "Classes::Sybase::Sqsh";
     if ((! $self->opts->hostname && ! $self->opts->server) ||
         ! $self->opts->username || ! $self->opts->password) {
       $self->add_unknown('Please specify hostname or server, username and password');
     }
   } elsif ($self->opts->method eq "sqlrelay") {
-    bless $self, "Classes::Sybase::Sqlrelay";
+    bless $self, "Classes::Sybase::SqlRelay";
     if ((! $self->opts->hostname && ! $self->opts->server) ||
         ! $self->opts->username || ! $self->opts->password) {
       $self->add_unknown('Please specify hostname or server, username and password');
@@ -53,4 +55,3 @@ sub classify {
     }
   }
 }
-
