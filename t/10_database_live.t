@@ -1,17 +1,21 @@
 #! /usr/bin/perl -w -I ..
 #
-# MySQL Database Server Tests via check_mssql_healthdb
+# Live database tests for check_mssql_health.
+# These run the compiled plugin against a real database server.
 #
-#
-# Check with:
-	#  tysql -U $user -P $password -H $host
 
 use strict;
 use Test::More;
-use NPTest;
 
 use vars qw($tests);
 
+# These tests need a real database and are therefore optional.
+# They only run when the environment variable MSSQL_DSN selects one of the
+# connections from the $login table below and the NPTest module from the
+# monitoring-plugins project is installed.
+plan skip_all => "set MSSQL_DSN to enable the database tests" unless $ENV{MSSQL_DSN};
+eval { require NPTest; NPTest->import(); };
+plan skip_all => "NPTest module not found" if $@;
 plan skip_all => "check_mssql_health not compiled" unless (-x "check_mssql_health");
 
 plan tests => 51;

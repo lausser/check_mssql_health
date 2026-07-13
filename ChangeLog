@@ -1,3 +1,8 @@
+* 2026-06-24 2.8.0.1
+  this was PR #64. Not merged, but copy-pasted because i had to force-push my
+  local changes first
+  fix backend naming for sqlrelay/sqlcmd, replace stale oracle-style tests
+  with source-level MSSQL sanity checks, and align docs with supported methods
 * 2025-11-11 2.8
   reorganize the plugin, Classes:: is now CheckMssqlHealth::, update your
   My-pms

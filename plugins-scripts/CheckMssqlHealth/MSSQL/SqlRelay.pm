@@ -1,3 +1,3 @@
-package CheckMssqlHealth::MSSQL::Sqlrelay;
-our @ISA = qw(CheckMssqlHealth::MSSQL CheckMssqlHealth::Sybase::Sqlrelay);
+package CheckMssqlHealth::MSSQL::SqlRelay;
+our @ISA = qw(CheckMssqlHealth::MSSQL CheckMssqlHealth::Sybase::SqlRelay);
 use strict;

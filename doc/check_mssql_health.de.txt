@@ -20,7 +20,7 @@ Kommandozeilenparameter
 * *--warning <range>* Ermittelte Werte außerhalb dieses Bereichs lösen ein WARNING aus.
 * *--critical <range>* Ermittelte Werte außerhalb dieses Bereichs lösen ein CRITICAL aus.
 * *--environment <variable>=<wert>* Damit kann man dem Script Environmentvariablen mitgeben. Mehrfachnennungen sind möglich.
-* *--method <connectmethode>* Mit diesem Parameter teilt man dem Plugin mit, wie es sich zur Datenbank verbinden soll. (dbi für Verbindung per DBD::Sybase (default), derzeit keine Alternativen).
+* *--method <connectmethode>* Mit diesem Parameter teilt man dem Plugin mit, wie es sich zur Datenbank verbinden soll. Gültige Werte sind dbi für DBD::Sybase (default), sqsh und sqlcmd für den Sqsh-Client sowie sqlrelay für den SQLRelay-Proxy.
 * *--units <%|KB|MB|GB>* Die Angabe von Einheiten dient der "Verschönerung" von Ausgaben des mode=sql
 * *--dbthresholds* Dieser Parameter sorgt dafür, daß Schwellwerte aus der Datenbanktabelle check_mssql_health_thresholds gelesen werden
 

@@ -20,7 +20,7 @@ Command line parameters
 * *--warning <range>* Values outside this range result in a WARNING.
 * *--critical <range>* Values outside this range result in a CRITICAL.
 * *--environment <variable>=<wert>* It is possible to set environment variables at runtime with htis parameter. It can be used multiple times.
-* *--method <connectmethode>* With this parameter you tell the plugin, which connection method it should use. Known values are: dbi for the perl module DBD::Sybase (default) and sqlrelay for the SQLRelay proxy..
+* *--method <connectmethod>* Mit diesem Parameter teilt man dem Plugin mit, wie es sich zur Datenbank verbinden soll. Gültige Werte sind dbi für DBD::Sybase (default), sqsh und sqlcmd für den Sqsh-Client sowie sqlrelay für den SQLRelay-Proxy.
 * *--units <%|KB|MB|GB>* This parameter adds units to the performance, when using mode=sql
 * *--dbthresholds* With this parameter thresholds are read from the database table check_mssql_health_thresholds
 

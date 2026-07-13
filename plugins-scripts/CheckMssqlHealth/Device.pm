@@ -21,13 +21,13 @@ sub classify {
       $self->add_unknown('Please specify hostname or server, username and password');
     }
   } elsif ($self->opts->method eq "sqlcmd") {
-    bless $self, "CheckMssqlHealth::Sybase::Sqlcmd";
+    bless $self, "CheckMssqlHealth::Sybase::Sqsh";
     if ((! $self->opts->hostname && ! $self->opts->server) ||
         ! $self->opts->username || ! $self->opts->password) {
       $self->add_unknown('Please specify hostname or server, username and password');
     }
   } elsif ($self->opts->method eq "sqlrelay") {
-    bless $self, "CheckMssqlHealth::Sybase::Sqlrelay";
+    bless $self, "CheckMssqlHealth::Sybase::SqlRelay";
     if ((! $self->opts->hostname && ! $self->opts->server) ||
         ! $self->opts->username || ! $self->opts->password) {
       $self->add_unknown('Please specify hostname or server, username and password');
