@@ -63,7 +63,7 @@ Modi
 |database-logfile-auto-shrinks|The number of Log File Auto Shrink events in the last <n> minutes (use --lookback)|0..n (1, 5)
 |database-datafile-auto-shrinks|The number of Data File Auto Shrink events in the last <n> minutes (use --lookback)|0..n (1, 5)
 |database-file-dbcc-shrinks|The number of DBCC File Shrink events (either data or log) in the last <n> minutes (use --lookback)|0..n (1, 5)
-|failed-jobs|The number of jobs which did not exit successful in the last <n> minutes (use --lookback)|0..n (1, 5)
+|failed-jobs|The number of jobs which did not exit successful in the last <n> minutes (use --lookback). Jobs that never ran are only warned when their next run time is already overdue.|0..n (1, 5)
 |sql|Result of a user-defined SQL statement, which returns a numerical value. The statement is passed to the plugin as an argument to the –sql parameter. A label for the performancedata can be defined with the –name2 parameter. A unit can be appended by using –units. If the SQL statement contains special characters, it is recommended to encode it first by calling check_mssql_health with the –encode parameter and sending the statement to STDIN|0..n
 |sql-runtime|Runtime of a custom sql statement in seconds|0..n (1, 5)
 |list-databases|Returns a list of all databases|-
@@ -441,4 +441,3 @@ mailto:gerhard.lausser@consol.de[gerhard.lausser@consol.de]
 ) will gladly answer your questions.
 // [/lang_en]
 // [lang_de]
-

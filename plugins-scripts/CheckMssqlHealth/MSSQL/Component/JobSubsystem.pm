@@ -174,7 +174,7 @@ sub is_likely_dst_switch_week {
     # We use a known time (e.g., noon) for the center day
     my $center_time;
     eval {
-        $center_time = timelocal(0, 0, 12, $center_day, $mon - 1, $year - 1900);
+        $center_time = Time::Local::timelocal(0, 0, 12, $center_day, $mon - 1, $year - 1900);
     };
     next if $@; # Skip if date is invalid (e.g., March 32nd)
 
@@ -201,7 +201,14 @@ sub check {
   my $self = shift;
   if ($self->mode =~ /server::jobs::failed/) {
     if (! defined $self->{lastrundatetime}) {
-      $self->add_ok(sprintf "%s did never run", $self->{name});
+      # A never-run job is only actionable when its scheduled time is already overdue.
+      my $nextrun_epoch = $self->nextrundatetime_to_epoch();
+      if (defined $nextrun_epoch && $nextrun_epoch <= time()) {
+        $self->add_warning(sprintf "%s did never run and is overdue since %s",
+            $self->{name}, $self->{nextrundatetime});
+      } else {
+        $self->add_ok(sprintf "%s did never run", $self->{name});
+      }
     } elsif ($self->{lastrunstatus} eq "Failed") {
       $self->add_critical(sprintf "%s failed at %s: %s",
           $self->{name}, $self->{lastrundatetime},
@@ -249,4 +256,23 @@ sub check {
           $self->{name},  $self->{nextrundatetime});
     }
   }
+}
+
+sub nextrundatetime_to_epoch {
+  my $self = shift;
+  return undef if ! defined $self->{nextrundatetime};
+  my $nextrun = $self->{nextrundatetime};
+  return $nextrun if $nextrun =~ /^\d+$/;
+  my %months = (
+    Jan => 0, Feb => 1, Mar => 2, Apr => 3, May => 4, Jun => 5,
+    Jul => 6, Aug => 7, Sep => 8, Oct => 9, Nov => 10, Dec => 11,
+  );
+  if ($nextrun =~ /^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})\s+(\d{1,2}):(\d{2})(AM|PM)$/) {
+    my ($mon, $mday, $year, $hour, $min, $ampm) = ($1, $2, $3, $4, $5, $6);
+    return undef if ! exists $months{$mon};
+    $hour %= 12;
+    $hour += 12 if $ampm eq 'PM';
+    return Time::Local::timelocal(0, $min, $hour, $mday, $months{$mon}, $year - 1900);
+  }
+  return undef;
 }
