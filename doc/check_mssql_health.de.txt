@@ -136,6 +136,8 @@ EXEC ('USE MASTER GRANT ALTER trace TO ' + @check_mssql_health_USER)
 EXEC ('USE MSDB GRANT SELECT ON sysjobhistory TO ' + @check_mssql_health_USER)
 EXEC ('USE MSDB GRANT SELECT ON sysjobschedules TO ' + @check_mssql_health_USER)
 EXEC ('USE MSDB GRANT SELECT ON sysjobs TO ' + @check_mssql_health_USER)
+EXEC ('USE MSDB GRANT SELECT ON sysjobactivity TO ' + @check_mssql_health_USER)
+EXEC ('USE MSDB GRANT SELECT ON sysschedules TO ' + @check_mssql_health_USER)
 PRINT 'User ' + @check_mssql_health_USER + ' created.'
 PRINT ''
 

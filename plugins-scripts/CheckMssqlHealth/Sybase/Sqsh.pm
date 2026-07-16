@@ -106,7 +106,8 @@ sub fetchrow_array {
     $self->add_warning($stderrvar);
   } else {
     my $output = do { local (@ARGV, $/) = $Monitoring::GLPlugin::DB::sql_resultfile; my $x = <>; close ARGV; $x } || '';
-    @row = map { $self->convert_scientific_numbers($_) }
+    @row = map { $_ eq 'NULL' ? undef : $_ }
+        map { $self->convert_scientific_numbers($_) }
         map { s/^\s+([\.\d]+)$/$1/g; $_ }         # strip leading space from numbers
         map { s/\s+$//g; $_ }                     # strip trailing space
         split(/\|/, (map { s/^\|//; $_; } grep {! /^\s*$/ } split(/\n/, $output)
@@ -154,6 +155,7 @@ sub fetchall_array {
   } else {
     my $output = do { local (@ARGV, $/) = $Monitoring::GLPlugin::DB::sql_resultfile; my $x = <>; close ARGV; $x } || '';
     my @rows = map { [
+        map { $_ eq 'NULL' ? undef : $_ }
         map { $self->convert_scientific_numbers($_) }
         map { s/^\s+([\.\d]+)$/$1/g; $_ }
         map { s/\s+$//g; $_ }
@@ -201,6 +203,7 @@ sub execute {
   } else {
     my $output = do { local (@ARGV, $/) = $Monitoring::GLPlugin::DB::sql_resultfile; my $x = <>; close ARGV; $x } || '';
     my @rows = map { [
+        map { $_ eq 'NULL' ? undef : $_ }
         map { $self->convert_scientific_numbers($_) }
         map { s/^\s+([\.\d]+)$/$1/g; $_ }
         map { s/\s+$//g; $_ }

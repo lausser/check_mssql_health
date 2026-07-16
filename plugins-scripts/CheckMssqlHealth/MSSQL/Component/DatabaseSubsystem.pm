@@ -459,6 +459,16 @@ sub check {
     $self->execute(q{
       USE MSDB GRANT SELECT ON sysjobs TO
     }.$self->opts->name2);
+    # sysjobactivity and sysschedules enable the server::jobs::failed
+    # enhancements (running-detection and overdue-never-run). The query works
+    # without them, but granting them here makes the enhancements the default
+    # for freshly created monitoring users. See doc/job-subsystem-privileges.md.
+    $self->execute(q{
+      USE MSDB GRANT SELECT ON sysjobactivity TO
+    }.$self->opts->name2);
+    $self->execute(q{
+      USE MSDB GRANT SELECT ON sysschedules TO
+    }.$self->opts->name2);
     if (my ($code, $message) = $self->check_messages(join_all => "\n")) {
 printf "CODE %d MESS %s\n", $code, $message;
       if (grep ! /(The server principal.*already exists)|(User.*group.*role.*already exists in the current database)/, split(/\n/, $message)) {
