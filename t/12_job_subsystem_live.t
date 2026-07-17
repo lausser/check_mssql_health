@@ -194,9 +194,24 @@ subtest 'NeverRunFuture is OK' => sub {
 };
 
 subtest 'NeverRunPast is WARNING (overdue)' => sub {
-    my ($rc, $out) = plugin("--name JobTest_NeverRunPast --lookback 30");
+    my ($rc, $out) = plugin("--name JobTest_NeverRunPast --mode overdue-jobs --lookback 30");
     is($rc, 1, "exit WARNING") or diag $out;
     like($out, qr/JobTest_NeverRunPast did never run and is overdue/, "reports overdue");
+};
+
+subtest 'CDC capture job is ignored while running' => sub {
+    db(q{USE msdb;
+        EXEC dbo.sp_add_job @job_name=N'cdc.MCM_CDB_capture', @enabled=1;
+        EXEC dbo.sp_add_jobstep @job_name=N'cdc.MCM_CDB_capture', @step_name=N'wait',
+            @subsystem=N'TSQL', @command=N'WAITFOR DELAY ''00:10:00''', @database_name=N'master';
+        EXEC dbo.sp_add_jobserver @job_name=N'cdc.MCM_CDB_capture', @server_name=N'(LOCAL)';
+        EXEC dbo.sp_start_job @job_name=N'cdc.MCM_CDB_capture';});
+    sleep 10;
+    my ($rc, $out) = plugin("--name cdc.MCM_CDB_capture --lookback 30");
+    is($rc, 0, "running CDC capture job stays OK") or diag $out;
+    like($out, qr/cdc\.MCM_CDB_capture is intentionally long-running \(ignore-list\)/, "ignore-list skip reported");
+    db(q{USE msdb; EXEC dbo.sp_stop_job @job_name=N'cdc.MCM_CDB_capture';});
+    db(q{USE msdb; EXEC dbo.sp_delete_job @job_name=N'cdc.MCM_CDB_capture';});
 };
 
 diag "Cancelling JobTest_CancelMe mid-run...";

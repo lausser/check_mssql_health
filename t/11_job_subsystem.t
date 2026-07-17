@@ -32,6 +32,7 @@ use CheckMssqlHealth::MSSQL::Component::JobSubsystem;
             # otherwise default to the current time in the same UTC frame as
             # format_dt() so age math is self-consistent.
             now => defined $_[7] ? $_[7] : ::format_dt(time()),
+            freqtype => $_[8],
         );
         return bless \%args, $class;
     }
@@ -65,7 +66,7 @@ sub format_dt {
         $t[5]+1900, $t[4]+1, $t[3], $t[2], $t[1], $t[0]);
 }
 
-plan tests => 21;
+plan tests => 29;
 
 my $now = time();
 my $future = format_dt($now + 86400);
@@ -79,10 +80,10 @@ is_deeply(check_result(CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->ne
     ['WARNING', 'retry-job Retry: again'], 'retry job is warning');
 is_deeply(check_result(CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new('server::jobs::failed', 'canceled-job', undef, '2026-07-13 11:53:00', 'Canceled', 'stop', 0)),
     ['WARNING', 'canceled-job Canceled: stop'], 'canceled job is warning');
-is_deeply(check_result(CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new('server::jobs::failed', 'never-run-future', $future, undef, undef, undef, 0)),
+is_deeply(check_result(CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new('server::jobs::failed', 'never-run-future', $future, undef, 'DidNeverRun', undef, undef)),
     ['OK', 'never-run-future did never run'], 'future never-run job stays ok');
-is_deeply(check_result(CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new('server::jobs::failed', 'never-run-past', $past, undef, undef, undef, 0)),
-    ['WARNING', "never-run-past did never run and is overdue since $past"], 'past never-run job warns');
+is_deeply(check_result(CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new('server::jobs::failed', 'never-run-past', $past, undef, 'DidNeverRun', undef, undef)),
+    ['OK', 'never-run-past did never run'], 'past never-run job stays ok in failed-jobs');
 is_deeply(check_result(CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new('server::jobs::failed', 'succeeded-job', undef, '2026-07-13 11:53:00', 'Succeeded', 'fine', 300)),
     ['OK', 'job succeeded-job ran for 300 seconds (started 2026-07-13 11:53:00)'], 'succeeded job follows runtime path');
 is_deeply(check_result(CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new('server::jobs::failed', 'running-job', undef, '2026-07-13 11:53:00', 'Running', 'in progress', 120)),
@@ -129,6 +130,14 @@ ok($never->in_scope(30), 'never-run job is always in scope');
 my $never_noscore = CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new('server::jobs::failed', 'never2', undef, undef, undef, undef, undef);
 ok($never_noscore->in_scope(30), 'job with undefined status is always in scope');
 
+# --- overdue-jobs mode: never-run jobs, warning only when overdue ---
+
+my $overdue_future = CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new('server::jobs::overdue', 'overdue-future', $future, undef, 'DidNeverRun', undef, undef);
+is_deeply(check_result($overdue_future), ['OK', 'overdue-future did never run'], 'future never-run job stays ok in overdue-jobs');
+
+my $overdue_past = CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new('server::jobs::overdue', 'overdue-past', $past, undef, 'DidNeverRun', undef, undef);
+is_deeply(check_result($overdue_past), ['WARNING', "overdue-past did never run and is overdue since $past"], 'past never-run job warns in overdue-jobs');
+
 # --- detect-running-jobs: sACT gives an in-progress run a defined start time ---
 # A job running for the very first time (no completed history) is surfaced by
 # the SQL as Running with a start time from sysjobactivity. It must go through
@@ -136,3 +145,56 @@ ok($never_noscore->in_scope(30), 'job with undefined status is always in scope')
 my $first_run = CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new('server::jobs::failed', 'first-run', undef, format_dt($now - 45), 'Running', undef, 45);
 is_deeply(check_result($first_run), ['OK', "job first-run ran for 45 seconds (started ${\ format_dt($now - 45)})"], 'first-ever running job takes the runtime path, not never-run');
 ok($first_run->in_scope(30), 'first-ever running job is always in scope');
+
+# --- long-running ignore-list and freq_type=64 skip ---
+
+# Task 4.1: Running job with freq_type=64 -> OK (auto-start skip)
+my $autostart = CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new(
+    'server::jobs::failed', 'cdc.MCM_CDB_capture', undef,
+    format_dt($now - 86400), 'Running', 'in progress', 86400,
+    undef, 64);
+is_deeply(check_result($autostart),
+    ['OK', 'cdc.MCM_CDB_capture is intentionally long-running (auto-start)'],
+    'running job with freq_type=64 is OK (auto-start skip)');
+
+# Task 4.2: Running job with freq_type!=64 -> runtime threshold check
+my $nonautostart = CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new(
+    'server::jobs::failed', 'daily-backup', undef,
+    format_dt($now - 120), 'Running', 'in progress', 120,
+    undef, 4);
+is_deeply(check_result($nonautostart),
+    ['OK', 'job daily-backup ran for 120 seconds (started ' . format_dt($now - 120) . ')'],
+    'running job with freq_type!=64 follows runtime-threshold path');
+
+# Task 4.3: Running job matching ignore-list -> OK (ignore-list skip)
+my $cdccapture = CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new(
+    'server::jobs::failed', 'cdc.MyDB_capture', undef,
+    format_dt($now - 86400), 'Running', 'in progress', 86400);
+is_deeply(check_result($cdccapture),
+    ['OK', 'cdc.MyDB_capture is intentionally long-running (ignore-list)'],
+    'running CDC capture job is OK (ignore-list skip)');
+
+# Task 4.4: Failed job matching ignore-list -> CRITICAL (ignore-list does not apply)
+my $cdcfailed = CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new(
+    'server::jobs::failed', 'cdc.OtherDB_capture', undef,
+    format_dt($now - 300), 'Failed', 'capture agent crashed', 300);
+is_deeply(check_result($cdcfailed),
+    ['CRITICAL', 'cdc.OtherDB_capture failed at ' . format_dt($now - 300) . ': capture agent crashed'],
+    'failed CDC capture job is CRITICAL (ignore-list does not apply)');
+
+# Task 4.5: Running job without sysschedules permission -> runtime threshold check
+# (freq_type is undef, but ignore-list still works for CDC capture jobs)
+my $noperm_cdc = CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new(
+    'server::jobs::failed', 'cdc.Production_capture', undef,
+    format_dt($now - 86400), 'Running', 'in progress', 86400);
+is_deeply(check_result($noperm_cdc),
+    ['OK', 'cdc.Production_capture is intentionally long-running (ignore-list)'],
+    'CDC capture job without sysschedules permission still matches ignore-list');
+
+# Running job without permission that is NOT in ignore-list -> runtime threshold
+my $noperm_other = CheckMssqlHealth::MSSQL::Component::JobSubsystem::Job->new(
+    'server::jobs::failed', 'long-maintenance', undef,
+    format_dt($now - 600), 'Running', 'cleanup', 600);
+is_deeply(check_result($noperm_other),
+    ['OK', 'job long-maintenance ran for 600 seconds (started ' . format_dt($now - 600) . ')'],
+    'non-CDC running job without permission follows runtime-threshold path');

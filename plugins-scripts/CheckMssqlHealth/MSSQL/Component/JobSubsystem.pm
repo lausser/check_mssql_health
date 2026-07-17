@@ -2,13 +2,22 @@ package CheckMssqlHealth::MSSQL::Component::JobSubsystem;
 our @ISA = qw(Monitoring::GLPlugin::DB::Item);
 use strict;
 
+# Hardcoded list of job name patterns for families known to run indefinitely.
+# Jobs matching any pattern here skip the runtime-threshold check in
+# failed-jobs mode. This is NOT user-configurable -- users who need custom
+# exclusions can use --name --regexp.
+my @long_running_ignore_list = (
+    qr/^cdc\..+_capture$/,  # CDC capture agents - run indefinitely
+    # future: add more patterns here as they are identified
+);
+
 sub init {
   my $self = shift;
   my $sql = undef;
   if ($self->mode =~ /server::jobs::(failed|enabled|list|overdue)/) {
     $self->override_opt('lookback', 30) if ! $self->opts->lookback;
     if ($self->version_is_minimum("9.x")) {
-      my $columns = ['id', 'name', 'now', 'lastrundurationseconds', 'lastrundatetime', 'lastrunstatus', 'lastrunduration', 'lastrunstatusmessage', 'nextrundatetime'];
+      my $columns = ['id', 'name', 'now', 'lastrundurationseconds', 'lastrundatetime', 'lastrunstatus', 'lastrunduration', 'lastrunstatusmessage', 'nextrundatetime', 'freqtype'];
       # The base query needs only the three msdb objects the monitoring user is
       # granted by default (sysjobs, sysjobschedules, sysjobhistory). Two
       # enhancements need extra objects that a least-privilege user cannot read:
@@ -52,6 +61,7 @@ sub init {
       # A running row carries a stale history message; blank it. Only meaningful
       # when running-detection is on, otherwise there is no running row.
       my $message_col = $use_activity ? qq{CASE WHEN $act_running THEN NULL ELSE [sJOBH].[message] END} : q{[sJOBH].[message]};
+      my $freqtype_col = $use_schedules ? q{[sSCH].[freq_type]} : q{NULL};
       my $nextrun_sch_when = $use_schedules ? qq{
                     WHEN [sSCH].[active_start_date] > 0 THEN
                         -- Never-run jobs have no computed next_run_date; fall back to the
@@ -65,10 +75,14 @@ sub init {
                 LEFT JOIN (
                     -- Configured schedule start, the overdue reference for jobs
                     -- that have never run (no computed next_run_date).
+                    -- freq_type=64 means "Runs when SQL Server Agent service
+                    -- starts" -- used to identify intentionally long-running
+                    -- jobs (e.g. CDC capture agents).
                     SELECT
                         js.[job_id],
                         MIN(ss.[active_start_date]) AS [active_start_date],
-                        MIN(ss.[active_start_time]) AS [active_start_time]
+                        MIN(ss.[active_start_time]) AS [active_start_time],
+                        MIN(ss.[freq_type]) AS [freq_type]
                     FROM
                         [msdb].[dbo].[sysjobschedules] js
                     JOIN
@@ -132,7 +146,8 @@ sub init {
                                 CAST([sJOBSCH].[NextRunDate] AS CHAR(8)) + ' ' + STUFF(STUFF(RIGHT('000000' + CAST([sJOBSCH].[NextRunTime] AS VARCHAR(6)),  6), 3, 0, ':'), 6, 0, ':') AS DATETIME), 120)$nextrun_sch_when
                     ELSE
                         NULL
-                END AS [NextRunDateTime]
+                END AS [NextRunDateTime],
+                $freqtype_col AS [freqtype]
             FROM
                 [msdb].[dbo].[sysjobs] AS [sJOB]
                 LEFT JOIN (
@@ -377,6 +392,35 @@ sub in_scope {
   return $finished + $lookback * 60 >= $self->now_epoch() ? 1 : 0;
 }
 
+# Does this job's name match any pattern in the hardcoded ignore-list?
+sub matches_ignore_list {
+  my $self = shift;
+  my $name = $self->{name};
+  return 0 if ! defined $name;
+  foreach my $pattern (@long_running_ignore_list) {
+    return 1 if $name =~ $pattern;
+  }
+  return 0;
+}
+
+# Is this job intentionally long-running?
+# Returns true if the job is Running AND (freq_type=64 OR matches ignore-list).
+# freq_type=64 means "Runs when SQL Server Agent service starts" -- these jobs
+# are designed to run indefinitely (e.g. CDC capture agents).
+sub is_intentionally_long_running {
+  my $self = shift;
+  return 0 unless $self->{lastrunstatus} && $self->{lastrunstatus} eq 'Running';
+  # freq_type=64: auto-start by definition
+  if (defined $self->{freqtype} && $self->{freqtype} == 64) {
+    return 1;
+  }
+  # Hardcoded ignore-list of known long-running job families
+  if ($self->matches_ignore_list()) {
+    return 1;
+  }
+  return 0;
+}
+
 sub check {
   my $self = shift;
   if ($self->mode =~ /server::jobs::failed/) {
@@ -389,6 +433,14 @@ sub check {
           $self->{name}, $self->{lastrunstatus}, $self->{lastrunstatusmessage});
     } elsif ($self->{lastrunstatus} eq "DidNeverRun") {
       $self->add_ok(sprintf "%s did never run", $self->{name});
+    } elsif ($self->is_intentionally_long_running()) {
+      # Skip runtime-threshold check for jobs that are Running AND
+      # (freq_type=64 or match the hardcoded ignore-list).
+      my $reason = (defined $self->{freqtype} && $self->{freqtype} == 64)
+          ? "auto-start"
+          : "ignore-list";
+      $self->add_ok(sprintf "%s is intentionally long-running (%s)",
+          $self->{name}, $reason);
     } else {
       my $label = 'job_'.$self->{name}.'_runtime';
       # Bei der Zeitumstellung Sommer/Winter anno 2025 kam hier ein negativer

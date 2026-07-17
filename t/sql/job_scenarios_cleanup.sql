@@ -14,6 +14,12 @@ END
 CLOSE c;
 DEALLOCATE c;
 GO
+IF EXISTS (SELECT 1 FROM dbo.sysjobs WHERE name = N'cdc.MCM_CDB_capture')
+BEGIN
+  BEGIN TRY EXEC dbo.sp_stop_job @job_name = N'cdc.MCM_CDB_capture'; END TRY BEGIN CATCH END CATCH;
+  EXEC dbo.sp_delete_job @job_name = N'cdc.MCM_CDB_capture';
+END
+GO
 DECLARE @sched NVARCHAR(128);
 DECLARE sc CURSOR FOR SELECT name FROM dbo.sysschedules WHERE name LIKE N'JobTest_%';
 OPEN sc;
