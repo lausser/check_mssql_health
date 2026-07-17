@@ -292,6 +292,12 @@ $plugin->add_mode(
     help => 'The jobs which did not exit successful in the last <n> minutes (use --lookback)',
 );
 $plugin->add_mode(
+    internal => 'server::jobs::overdue',
+    spec => 'overdue-jobs',
+    alias => undef,
+    help => 'The jobs which did never run and are overdue since <n> minutes (use --lookback)',
+);
+$plugin->add_mode(
     internal => 'server::jobs::enabled',
     spec => 'jobs-enabled',
     alias => undef,

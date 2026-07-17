@@ -5,7 +5,7 @@ use strict;
 sub init {
   my $self = shift;
   my $sql = undef;
-  if ($self->mode =~ /server::jobs::(failed|enabled|list)/) {
+  if ($self->mode =~ /server::jobs::(failed|enabled|list|overdue)/) {
     $self->override_opt('lookback', 30) if ! $self->opts->lookback;
     if ($self->version_is_minimum("9.x")) {
       my $columns = ['id', 'name', 'now', 'lastrundurationseconds', 'lastrundatetime', 'lastrunstatus', 'lastrunduration', 'lastrunstatusmessage', 'nextrundatetime'];
@@ -198,6 +198,9 @@ sub check {
       # minutes after it *started* would otherwise never be reported.
       my $lookback = $self->opts->lookback;
       @{$self->{jobs}} = grep { $_->in_scope($lookback) } @{$self->{jobs}};
+    } elsif ($self->mode =~ /server::jobs::overdue/) {
+      # Only consider jobs that have never run.
+      @{$self->{jobs}} = grep { ! defined $_->{lastrundatetime} } @{$self->{jobs}};
     }
     $self->SUPER::check();
     if (! @{$self->{jobs}}) {
@@ -377,22 +380,15 @@ sub in_scope {
 sub check {
   my $self = shift;
   if ($self->mode =~ /server::jobs::failed/) {
-    if (! defined $self->{lastrundatetime}) {
-      # A never-run job is only actionable when its scheduled time is already overdue.
-      my $nextrun_epoch = $self->iso_to_epoch($self->{nextrundatetime});
-      if (defined $nextrun_epoch && $nextrun_epoch <= $self->now_epoch()) {
-        $self->add_warning(sprintf "%s did never run and is overdue since %s",
-            $self->{name}, $self->{nextrundatetime});
-      } else {
-        $self->add_ok(sprintf "%s did never run", $self->{name});
-      }
-    } elsif ($self->{lastrunstatus} eq "Failed") {
+    if ($self->{lastrunstatus} eq "Failed") {
       $self->add_critical(sprintf "%s failed at %s: %s",
           $self->{name}, $self->{lastrundatetime},
           $self->{lastrunstatusmessage});
     } elsif ($self->{lastrunstatus} eq "Retry" || $self->{lastrunstatus} eq "Canceled") {
       $self->add_warning(sprintf "%s %s: %s",
           $self->{name}, $self->{lastrunstatus}, $self->{lastrunstatusmessage});
+    } elsif ($self->{lastrunstatus} eq "DidNeverRun") {
+      $self->add_ok(sprintf "%s did never run", $self->{name});
     } else {
       my $label = 'job_'.$self->{name}.'_runtime';
       # Bei der Zeitumstellung Sommer/Winter anno 2025 kam hier ein negativer
@@ -423,6 +419,16 @@ sub check {
           value => $self->{lastrundurationseconds},
           uom => 's',
       );
+    }
+  } elsif ($self->mode =~ /server::jobs::overdue/) {
+    # All jobs here are never-run (filtered by parent check).
+    # Flag only those whose scheduled time is already past.
+    my $nextrun_epoch = $self->iso_to_epoch($self->{nextrundatetime});
+    if (defined $nextrun_epoch && $nextrun_epoch <= $self->now_epoch()) {
+      $self->add_warning(sprintf "%s did never run and is overdue since %s",
+          $self->{name}, $self->{nextrundatetime});
+    } else {
+      $self->add_ok(sprintf "%s did never run", $self->{name});
     }
   } elsif ($self->mode =~ /server::jobs::enabled/) {
     if (! defined $self->{nextrundatetime}) {
