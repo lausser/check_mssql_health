@@ -214,6 +214,33 @@ subtest 'CDC capture job is ignored while running' => sub {
     db(q{USE msdb; EXEC dbo.sp_delete_job @job_name=N'cdc.MCM_CDB_capture';});
 };
 
+subtest 'auto-start job (freq_type=64) is skipped while running' => sub {
+    # A running job whose schedule is freq_type=64 ("start when SQL Server Agent
+    # starts") is intentionally long-running. It must be recognised via the
+    # freqtype column (which needs sysschedules -- sa has it) and skipped without
+    # a runtime-threshold alert. The name deliberately does NOT match the CDC
+    # ignore-list, so passing here proves the freq_type=64 path end-to-end (query
+    # -> freqtype column -> auto-start skip), not the name-based ignore-list path.
+    db(q{USE msdb;
+        EXEC dbo.sp_add_job @job_name=N'JobTest_AutoStart', @enabled=1;
+        EXEC dbo.sp_add_jobstep @job_name=N'JobTest_AutoStart', @step_name=N'wait',
+            @subsystem=N'TSQL', @command=N'WAITFOR DELAY ''00:10:00''', @database_name=N'master';
+        EXEC dbo.sp_add_jobserver @job_name=N'JobTest_AutoStart', @server_name=N'(LOCAL)';
+        EXEC dbo.sp_add_schedule @schedule_name=N'JobTest_AutoStart_Sched',
+            @enabled=1, @freq_type=64;
+        EXEC dbo.sp_attach_schedule @job_name=N'JobTest_AutoStart',
+            @schedule_name=N'JobTest_AutoStart_Sched';
+        EXEC dbo.sp_start_job @job_name=N'JobTest_AutoStart';});
+    sleep 10;
+    my ($rc, $out) = plugin("--name JobTest_AutoStart --lookback 30");
+    is($rc, 0, "running auto-start job stays OK") or diag $out;
+    like($out, qr/JobTest_AutoStart is intentionally long-running \(auto-start\)/,
+        "auto-start (freq_type=64) skip reported");
+    db(q{USE msdb; EXEC dbo.sp_stop_job @job_name=N'JobTest_AutoStart';});
+    db(q{USE msdb; EXEC dbo.sp_delete_job @job_name=N'JobTest_AutoStart';});
+    db(q{USE msdb; EXEC dbo.sp_delete_schedule @schedule_name=N'JobTest_AutoStart_Sched';});
+};
+
 diag "Cancelling JobTest_CancelMe mid-run...";
 db(q{USE msdb; EXEC dbo.sp_stop_job @job_name=N'JobTest_CancelMe';});
 

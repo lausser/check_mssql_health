@@ -1,3 +1,7 @@
+* 2026-07-20 2.9
+  redesigned mode failed-jobs (lookback now aligns with the end time, not with the start time of a job)
+  bugfix: long-running jobs can not slip out of the lookback window.
+  new mode overdue-jobs for jobs that have a next-run in the past.
 * 2026-06-24 2.8.0.1
   this was PR #64. Not merged, but copy-pasted because i had to force-push my
   local changes first
